@@ -133,7 +133,8 @@
     // синхронизация между вкладками
     window.addEventListener('storage', (e) => {
       if (e.key === App.stateKey() && e.newValue) {
-        try { Object.assign(App.state, JSON.parse(e.newValue)); header(); } catch (err) { /* ignore */ }
+        try { Object.assign(App.state, JSON.parse(e.newValue)); } catch (err) { return; }
+        App.emit('state');
       }
     });
     header();

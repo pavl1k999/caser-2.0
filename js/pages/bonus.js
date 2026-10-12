@@ -85,6 +85,9 @@
         .map((l) => `<div class="lvl-cell ${l <= lv ? 'got' : ''}"><span class="lvl">${l}</span><b>×${App.fmt(App.wheelMult(l))}</b></div>`)
         .join('');
     }
+    // #page переиспользуется между страницами, поэтому «ушли ли мы» отслеживаем флагом
+    let alive = true;
+    App.onLeave(() => (alive = false));
     let spinning = false;
     let rot = 0;
     App.$('#dBtn').onclick = async () => {
@@ -110,7 +113,7 @@
       setTimeout(() => clearInterval(tick), 3400);
       await App.sleep(5200);
       spinning = false;
-      if (!root.isConnected) return;
+      if (!alive) return;
       App.sound.win(sec.v >= 250);
       App.toast(`Колесо: +${App.fmt(amt)} ${App.config.currency}`, 'success');
       App.$('#wRes').innerHTML = `Выпало ${sec.v} × ${App.fmt(mult)} = <b>${App.fmt(amt)}</b> · число ${f.toFixed(4)} · <a href="#/fair/${proofId}">проверить</a>`;

@@ -322,8 +322,13 @@
     App.emit('state');
     App.emit('saved');
   };
+  // сброс прогресса: инвентарь, баланс и статистика — заново; привязка Steam, ник, сиды
+  // и уже использованные бонусы (промокоды, колесо, бесплатные кейсы) сохраняются
+  const KEEP = ['nick', 'avatar', 'steam', 'created', 'daily', 'faucet', 'promos', 'freeCases', 'fair', 'proofs', 'sound'];
   App.reset = () => {
+    const old = App.state;
     App.state = defaults();
+    for (const k of KEEP) if (old[k] !== undefined) App.state[k] = old[k];
     App.save();
   };
 
@@ -388,12 +393,17 @@
     if (!silent) App.toast(`Продано на ${App.fmt(sum)} ${App.config.currency}`, 'success');
     return sum;
   };
+  // списать предметы можно только если все они ещё в инвентаре (могли продать в другой вкладке)
   App.consumeItems = (uids, state) => {
-    for (const uid of uids) {
-      const it = App.findItem(uid);
-      if (it) it.state = state;
+    const items = uids.map(App.findItem);
+    if (!items.length || items.some((it) => !it || it.state !== 'inv')) {
+      App.toast('Часть предметов уже недоступна — обновите выбор', 'error');
+      App.emit('state');
+      return false;
     }
+    for (const it of items) it.state = state;
     App.save();
+    return true;
   };
 
   // уровни: xp = потраченные монеты
@@ -472,20 +482,25 @@
     const box = m.querySelector('.modal');
     if (typeof inner === 'string') box.insertAdjacentHTML('beforeend', inner);
     else box.appendChild(inner);
+    let closed = false;
     const close = () => {
+      if (closed) return;
+      closed = true;
       m.classList.add('out');
       setTimeout(() => m.remove(), 200);
       document.removeEventListener('keydown', onKey);
       opts.onClose && opts.onClose();
     };
-    const onKey = (e) => e.key === 'Escape' && close();
+    // sticky-окно (идёт анимация) закрывается только кодом
+    const onKey = (e) => e.key === 'Escape' && !m.classList.contains('sticky') && close();
+    if (opts.sticky) m.classList.add('sticky');
     document.addEventListener('keydown', onKey);
     m.addEventListener('click', (e) => {
-      if (e.target === m && !opts.sticky) close();
+      if (e.target === m && !m.classList.contains('sticky')) close();
     });
     m.querySelector('.modal-x').onclick = close;
     document.body.appendChild(m);
-    return { el: box, close };
+    return { el: box, close, unstick: () => m.classList.remove('sticky') };
   };
 
   /* ---------------- роутер ---------------- */

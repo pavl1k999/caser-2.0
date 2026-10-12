@@ -208,7 +208,7 @@ def main():
             round(mn, 3), round(mx, 3), st, round(price, 2), phase,
         ]
         ev = price * expected_wear_mult(mn, mx) * (1 + ST_CHANCE * (ST_MULT - 1) * st)
-        meta[s["id"]] = {"ev": ev, "price": price, "weapon": weapon,
+        meta[s["id"]] = {"ev": ev, "price": round(price, 2), "weapon": weapon,
                          "rarity": rarity, "pattern": pattern, "phase": phase,
                          "cat": s["category"]["name"], "wlo": wlo, "whi": whi}
 

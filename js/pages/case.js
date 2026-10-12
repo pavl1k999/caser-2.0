@@ -176,6 +176,9 @@
       try { localStorage.setItem('fastOpen', fast ? '1' : '0'); } catch (err) { /* ignore */ }
     };
 
+    // #page переиспользуется между страницами, поэтому «ушли ли мы» отслеживаем флагом
+    let alive = true;
+    App.onLeave(() => (alive = false));
     btn.onclick = async () => {
       if (busy) return;
       if (!App.requireLogin()) return;
@@ -207,6 +210,7 @@
         cover.classList.add('shake');
         App.sound.shake();
         await App.sleep(520);
+        if (!alive) return;
         cover.classList.add('burst');
         App.$('#rouls').scrollIntoView({ behavior: 'smooth', block: 'center' });
         await App.sleep(160);
@@ -218,7 +222,7 @@
       const best = Math.max(...wins.map((w) => w.price));
       App.sound.win(best >= (c.price || c.value) * 3);
       busy = false;
-      if (!root.isConnected) return;
+      if (!alive) return;
       root.classList.remove('busy');
       App.$('#caseCover').classList.remove('shake', 'burst');
       App.$('#openCtrl').classList.remove('locked');

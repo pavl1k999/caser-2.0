@@ -20,10 +20,41 @@
     return m.lo + (m.hi - m.lo) * Math.pow(f, m.k);
   });
 
+  // допустимая стоимость контракта: весь диапазон [s·lo, s·hi] должен быть покрыт каталогом
+  const limits = (md) => {
+    const cat = App.catalog();
+    return { min: Math.ceil((cat[0].price / md.lo) * 100) / 100, max: Math.floor((cat[cat.length - 1].price / md.hi) * 100) / 100 };
+  };
+  /*
+   * Цель t = s · m. Берём соседние цены каталога a ≤ t ≤ b и выбираем b с вероятностью (t − a)/(b − a):
+   * матожидание цены ровно t, поэтому RTP режима не зависит от того, насколько «редкий» каталог в этой зоне.
+   * f2 — выбор между a и b, f3 — выбор предмета среди всех с этой ценой.
+   */
+  const pick = (App.contractPick = (s, mode, f1, f2, f3) => {
+    const md = MODES[mode];
+    const cat = App.catalog();
+    const lo = s * md.lo - 1e-9, hi = s * md.hi + 1e-9;
+    const t = Math.min(Math.max(s * contractMult(f1, mode), lo), hi);
+    let i = 0;
+    while (i < cat.length && cat[i].price < t) i++; // первый ≥ t
+    let b = Math.min(i, cat.length - 1);
+    let a = cat[b].price > t && b > 0 ? b - 1 : b;
+    if (cat[a].price < lo) a = b;
+    if (cat[b].price > hi) b = a;
+    const pa = cat[a].price, pb = cat[b].price;
+    const price = pb > pa && f2 < (t - pa) / (pb - pa) ? pb : pa;
+    let from = cat.findIndex((e) => e.price === price);
+    let to = from;
+    while (to + 1 < cat.length && cat[to + 1].price === price) to++;
+    return { mult: contractMult(f1, mode), entry: cat[from + Math.floor(f3 * (to - from + 1))] };
+  });
+
   App.route('/contracts', (root) => {
     const sel = new Set();
     let busy = false;
     let mode = 'medium';
+    let alive = true;
+    App.onLeave(() => (alive = false));
     root.innerHTML = `
       ${App.pageHead('Контракты', 'Отдай от 3 до 10 скинов — получи один новый. Чем сложнее режим, тем шире разброс цены.', 'dice', '#7c5cff')}
       <section class="ct-stage panel">
@@ -56,8 +87,9 @@
       App.$('#ctRange').innerHTML = sel.size ? `${App.coin(s * md.lo)} — ${App.coin(s * md.hi)}` : `x${md.lo} — x${md.hi}`;
       App.$('#ctHelp').innerHTML = `Выберите от ${MIN} до ${MAX} предметов. Результат — случайный скин от x${App.fmt(md.lo)} до x${App.fmt(md.hi)} от суммы. Средний возврат ${Math.round(md.rtp * 100)}%, шанс получить дороже — ${(md.profit * 100).toFixed(0)}%.`;
       const btn = App.$('#ctBtn');
-      btn.disabled = busy || sel.size < MIN;
-      btn.textContent = sel.size < MIN ? `Нужно ещё ${MIN - sel.size}` : 'Подписать контракт';
+      const lim = limits(md);
+      btn.disabled = busy || sel.size < MIN || s < lim.min || s > lim.max;
+      btn.textContent = sel.size < MIN ? `Нужно ещё ${MIN - sel.size}` : s < lim.min ? `Минимум ${App.fmt(lim.min)} для режима` : s > lim.max ? `Максимум ${App.fmt(lim.max)} для режима` : 'Подписать контракт';
       const inv = App.inventory().sort((a, b) => a.price - b.price);
       App.$('#ctCount').textContent = inv.length ? inv.length + ' шт.' : '';
       App.$('#ctInv').innerHTML = inv.length
@@ -93,27 +125,31 @@
     App.$('#ctBtn').onclick = async () => {
       if (!App.requireLogin()) return;
       if (busy || sel.size < MIN) return;
+      const uids = Array.from(sel);
+      if (uids.some((u) => App.findItem(u)?.state !== 'inv')) {
+        prune();
+        return App.toast('Часть предметов уже недоступна', 'error');
+      }
+      const s = Math.round(sum() * 100) / 100;
+      const md = MODES[mode];
+      const lim = limits(md);
+      if (s < lim.min || s > lim.max) return;
+      if (!App.consumeItems(uids, 'contract')) return;
       busy = true;
       root.classList.add('busy');
-      const s = sum();
-      const uids = Array.from(sel);
-      const md = MODES[mode];
       const game = App.fair.begin('contract');
-      const mult = contractMult(game.next(), mode);
-      // ближайший по цене предмет, но не выходя за объявленный диапазон
-      let entry = App.catalogNear(s * mult, 3, game.next());
-      if (entry.price < s * md.lo || entry.price > s * md.hi) entry = App.catalogNear(Math.min(Math.max(s * mult, s * md.lo), s * md.hi), 0);
+      const { mult, entry } = pick(s, mode, game.next(), game.next(), game.next());
       const it = App.itemFromCatalog(entry, 'Контракт');
-      it.proof = { ...game.proof, mult, mode };
-      it.proof.id = App.fair.record(game.proof, { mult, mode, result: `${md.name}, x${mult.toFixed(2)} → ${App.itemName(it)}` });
-      App.consumeItems(uids, 'contract');
+      it.proof = { ...game.proof, mult, mode, sum: s };
+      it.proof.id = App.fair.record(game.proof, { mult, mode, sum: s, result: `${md.name}, ${App.fmt(s)} × ${mult.toFixed(4)} → ${App.itemName(it)} (${App.fmt(it.price)})` });
       App.state.stats.contracts++;
       App.addItems([it]);
 
       // анимация: перебор карточек и раскрытие
       const m = App.modal('<div class="ct-anim"><h2>Подписываем контракт…</h2><div class="ct-flip" id="ctFlip"></div></div>', { sticky: true, cls: 'modal-sm' });
       m.el.querySelector('.modal-x').style.display = 'none';
-      const flip = App.$('#ctFlip');
+      try {
+      const flip = m.el.querySelector('#ctFlip');
       for (let i = 0; i < 18; i++) {
         const e = App.catalogNear(s * App.rand(md.lo, md.hi), 10);
         flip.innerHTML = App.itemCard(e, { cls: 'big', noPrice: true });
@@ -125,14 +161,23 @@
       App.sound.win(it.price > s);
       m.el.querySelector('h2').textContent = it.price >= s ? 'Отличный контракт!' : 'Контракт выполнен';
       m.el.querySelector('.modal-x').style.display = '';
+      m.unstick();
       m.el.insertAdjacentHTML('beforeend', `<div class="row"><button class="btn btn-green" id="ctSell">Продать за ${App.coin(it.price)}</button><button class="btn btn-accent" id="ctOk">Забрать</button></div>`);
-      App.$('#ctSell').onclick = () => { App.sellItems([it.uid]); m.close(); };
-      App.$('#ctOk').onclick = () => m.close();
-      sel.clear();
-      busy = false;
-      root.classList.remove('busy');
-      draw();
+      m.el.querySelector('#ctSell').onclick = () => { App.sellItems([it.uid]); m.close(); };
+      m.el.querySelector('#ctOk').onclick = () => m.close();
+      } finally {
+        sel.clear();
+        busy = false;
+        root.classList.remove('busy');
+        if (alive) draw();
+      }
     };
+    // предметы могли продать в другой вкладке — убираем их из выбора
+    const prune = () => {
+      for (const u of sel) if (App.findItem(u)?.state !== 'inv') sel.delete(u);
+      if (!busy && alive) draw();
+    };
+    App.onLeave(App.on('state', prune));
     draw();
   });
 })();

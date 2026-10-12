@@ -17,6 +17,8 @@
     let q = '';
     let rot = 0;
     let dir = 'under';
+    let alive = true;
+    App.onLeave(() => (alive = false));
 
     root.innerHTML = `
       ${App.pageHead('Апгрейд', 'Поставь скины или монеты и рискни ради более дорогого предмета. Шанс = ставка / цель × 90%.', 'rocket', '#2fd27a')}
@@ -174,12 +176,22 @@
     App.$('#upBtn').onclick = async () => {
       if (!App.requireLogin()) return;
       if (busy || !target) return;
+      const uids = Array.from(sel);
+      if (uids.some((u) => App.findItem(u)?.state !== 'inv')) {
+        prune();
+        return App.toast('Часть предметов уже недоступна', 'error');
+      }
       const ch = chance();
-      if (coins > 0 && !App.pay(coins, 'Апгрейд (монеты)')) return;
-      busy = true;
+      if (!ch || target.price < stake() * MIN_MULT - 1e-9) return;
+      busy = true; // до списания: обработчик 'state' не должен трогать выбор
+      if (coins > 0 && !App.pay(coins, 'Апгрейд (монеты)')) return void (busy = false);
+      if (uids.length && !App.consumeItems(uids, 'upgrading')) {
+        busy = false;
+        if (coins > 0) App.credit(coins, 'Возврат: апгрейд отменён');
+        return;
+      }
       root.classList.add('busy');
       App.$('#upBtn').disabled = true;
-      const uids = Array.from(sel);
       const tgt = target;
       // provably fair: число [0,1); «Меньше» — победа при roll < шанс, «Больше» — при roll ≥ 1 − шанс
       const game = App.fair.begin('upgrade');
@@ -187,7 +199,7 @@
       const win = dir === 'over' ? roll >= 1 - ch : roll < ch;
       // результат фиксируем сразу, до анимации: уход со страницы ничего не меняет
       App.state.stats.upgrades++;
-      App.consumeItems(uids, win ? 'upgraded' : 'lost');
+      for (const u of uids) App.findItem(u).state = win ? 'upgraded' : 'lost';
       let it = null;
       if (win) {
         it = App.itemFromCatalog(tgt, 'Апгрейд');
@@ -209,7 +221,7 @@
       const ticker = setInterval(App.sound.tick, 90);
       setTimeout(() => clearInterval(ticker), 3200);
       await App.sleep(5200);
-      if (!root.isConnected) return;
+      if (!alive) return;
       const stage = App.$('.up-stage');
       App.$('#upRoll').innerHTML = `Выпало <b>${roll.toFixed(4).replace('.', ',')}</b> · <a href="#/fair/${proofId}">проверить</a>`;
       if (win) {
@@ -230,11 +242,21 @@
       App.$('#upCoins').value = 0;
       target = null;
       await App.sleep(1200);
+      if (!alive) return;
       stage.classList.remove('up-win', 'up-lose');
       busy = false;
       root.classList.remove('busy');
       drawAll();
     };
+
+    // предметы могли продать в другой вкладке — убираем их из ставки
+    const prune = () => {
+      if (busy || !alive) return;
+      for (const u of sel) if (App.findItem(u)?.state !== 'inv') sel.delete(u);
+      coins = Math.min(coins, Math.floor(App.state.balance));
+      drawAll();
+    };
+    App.onLeave(App.on('state', prune));
 
     drawAll();
   });

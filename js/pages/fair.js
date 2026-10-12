@@ -6,11 +6,11 @@
   const short = (h) => (h ? h.slice(0, 10) + '…' : '—');
 
   // пересчёт результата по сидам — тот же код, что в игре
-  App.verifyGame = ({ kind, serverSeed, clientSeed, nonce, caseId, chance, dir, slots, mode, weights }) => {
+  App.verifyGame = ({ kind, serverSeed, clientSeed, nonce, caseId, chance, dir, slots, mode, sum, shares, seats }) => {
     const F = App.fair;
-    // хэш курсора 0 даёт первые 8 чисел; нам нужны число 0 и число 1 (байты 0–3 и 4–7)
+    // хэш курсора 0 даёт первые 8 чисел; нам нужны числа 0–2 (байты 0–11)
     const hex = F.hmacHex(serverSeed, `${clientSeed}:${nonce}:0`);
-    const rows = [0, 1].map((cur) => ({ cur, hex, f: F.float(serverSeed, clientSeed, nonce, cur) }));
+    const rows = (kind === 'contract' ? [0, 1, 2] : [0, 1]).map((cur) => ({ cur, hex, f: F.float(serverSeed, clientSeed, nonce, cur) }));
     const out = { rows, lines: [] };
     if (kind === 'case' || kind === 'battle') {
       const c = App.caseById(caseId);
@@ -34,13 +34,27 @@
       const md = App.CONTRACT_MODES[mode] || App.CONTRACT_MODES.medium;
       out.lines.push(['Режим', `${md.name} (x${md.lo}–x${md.hi})`]);
       out.lines.push(['Множитель', 'x' + App.contractMult(rows[0].f, mode).toFixed(4)]);
+      if (sum > 0) {
+        const { entry } = App.contractPick(sum, mode, rows[0].f, rows[1].f, rows[2].f);
+        const sk = App.skin(entry.sid);
+        out.lines.push(['Цель', `${App.fmt(sum)} × ${App.contractMult(rows[0].f, mode).toFixed(4)} = ${App.fmt(sum * App.contractMult(rows[0].f, mode))}`]);
+        out.lines.push(['Предмет', `${esc(sk.title)} | ${esc(sk.sub)} (${App.WEARS[entry.wear].short}) — ${App.fmt(entry.price)}`]);
+      }
     } else if (kind === 'wheel') {
       const sec = App.wheelSector(rows[0].f);
       out.lines.push(['Сектор', `${sec.v} (шанс ${((sec.w / App.WHEEL.reduce((a, x) => a + x.w, 0)) * 100).toFixed(0)}%), затем × множитель уровня`]);
     } else if (kind === 'jackpot') {
       out.lines.push(['Колесо', `${rows[0].f.toFixed(6)} — побеждает сектор, на который приходится это число (секторы по доле стоимости дропа, в порядке мест)`]);
+      if (shares && shares.length) {
+        const tot = shares.reduce((a, x) => a + x, 0) || 1;
+        let acc = 0;
+        let gi = shares.findIndex((x) => (acc += x / tot) > rows[0].f);
+        if (gi < 0) gi = shares.length - 1;
+        out.lines.push(['Победитель', `сектор ${gi + 1} из ${shares.length} (доли: ${shares.map((x) => ((x / tot) * 100).toFixed(2) + '%').join(', ')})`]);
+      }
     } else if (kind === 'tiebreak') {
-      out.lines.push(['Победитель', `место ${Math.floor(rows[0].f * slots) + 1} из ${slots}`]);
+      const k = Math.floor(rows[0].f * slots);
+      out.lines.push(['Победитель', `кандидат ${k + 1} из ${slots}${seats && seats[k] ? ` (${esc(seats[k])})` : ''}`]);
     }
     return out;
   };
@@ -74,7 +88,8 @@
 
 Кейс:     число 0 → билет (предмет, износ, StatTrak), число 1 → float внутри износа
 Апгрейд:  число 0 → победа, если число &lt; шанс (или ≥ 1 − шанс при «Больше»)
-Контракт: число 0 → множитель, число 1 → выбор предмета
+Контракт: число 0 → множитель m, цель t = сумма × m; соседние цены a ≤ t ≤ b,
+          число 1 → b, если число &lt; (t − a)/(b − a), иначе a; число 2 → предмет среди равных по цене
 Батл:     каждое место в каждом раунде — отдельный nonce (раунд за раундом, места по порядку)
 Колесо, Jackpot, тай-брейк: число 0</div>
           <p class="fair-note small">Схема совпадает со Stake. Проверочный вектор: server «some server seed», client «some client seed», nonce 1 → числа <code>${App.fair.float('some server seed', 'some client seed', 1, 0)}</code>, <code>${App.fair.float('some server seed', 'some client seed', 1, 1)}</code>.</p>
@@ -93,6 +108,8 @@
             <label data-k="upgrade">Шанс, %<input id="vChance" type="number" step="0.0001" min="0" max="100" value="50"></label>
             <label data-k="upgrade">Режим<select id="vDir"><option value="under">Меньше (по умолчанию)</option><option value="over">Больше</option></select></label>
             <label data-k="contract">Режим<select id="vMode">${Object.entries(App.CONTRACT_MODES).map(([k, m]) => `<option value="${k}">${m.name}</option>`).join('')}</select></label>
+            <label data-k="contract">Стоимость контракта<input id="vSum" type="number" step="0.01" min="0" placeholder="необязательно"></label>
+            <label data-k="jackpot">Доли участников (через запятую)<input id="vShares" autocomplete="off" placeholder="например 120.5, 80"></label>
             <label data-k="tiebreak">Участников с равной суммой<input id="vSlots" type="number" min="2" max="6" value="2"></label>
             <button class="btn btn-accent">Проверить</button>
           </form>
@@ -158,6 +175,9 @@
         dir: App.$('#vDir').value,
         slots: Math.max(2, Math.floor(+App.$('#vSlots').value || 2)),
         mode: App.$('#vMode').value,
+        sum: +App.$('#vSum').value || 0,
+        shares: App.$('#vShares').value.split(/[,;\s]+/).map(Number).filter((x) => x > 0),
+        seats: presetProof && presetProof.kind === kind ? presetProof.seats : null,
       });
       const hash = App.fair.sha256Hex(serverSeed);
       const known = hash === f.serverHash || hash === f.nextHash || App.fair.revealed(hash);
@@ -201,6 +221,8 @@
       if (p.dir) App.$('#vDir').value = p.dir;
       if (p.slots) App.$('#vSlots').value = p.slots;
       if (p.mode) App.$('#vMode').value = p.mode;
+      if (p.sum) App.$('#vSum').value = p.sum;
+      if (p.shares) App.$('#vShares').value = p.shares.map((x) => +x.toFixed(6)).join(', ');
       if (open) {
         App.$('#vSs').value = open.serverSeed;
         syncKind();

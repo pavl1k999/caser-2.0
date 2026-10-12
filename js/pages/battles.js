@@ -111,11 +111,14 @@
       const j = e.target.closest('.join');
       if (!j) return;
       const b = battles.find((x) => x.id === j.dataset.id);
+      if (b && b.slots.some((s) => s && s.me)) return App.go('/battle/' + b.id);
       if (!b || b.state !== 'waiting') return App.toast('Батл уже начался', 'error');
       const i = b.slots.indexOf(null);
-      if (i < 0) return;
+      if (i < 0) return App.toast('Батл уже заполнен', 'error');
       if (!App.pay(b.price, 'Вход в батл')) return;
       b.slots[i] = App.me();
+      b.revealed = i + 1;
+      commit(b);
       App.go('/battle/' + b.id);
     };
     App.$('#newBattle').onclick = openCreate;
@@ -180,10 +183,14 @@
       picked.splice(+c.dataset.i, 1);
       draw();
     };
+    let busy = false;
     App.$('#bcGo').onclick = () => {
+      if (busy || !picked.length) return;
       const total = picked.reduce((a, id) => a + App.caseById(id).price, 0);
       if (!App.pay(total, 'Создание батла')) return;
+      busy = true;
       const b = createBattle(picked.slice(), format, game, App.me());
+      commit(b);
       m.close();
       App.go('/battle/' + b.id);
     };
@@ -203,7 +210,25 @@
     return shares;
   }
 
+  // Батл засчитывается сразу в момент оплаты: добираются боты, делаются все броски и выплата.
+  // Страница батла только анимирует готовый результат — F5, уход или повторный заход ничего не меняют.
+  function commit(b) {
+    if (b.results) return;
+    if (b.revealed == null) b.revealed = 1;
+    for (let i = 0; i < b.slots.length; i++) if (!b.slots[i]) b.slots[i] = App.makeBot();
+    b.state = 'running';
+    b.results = b.slots.map(() => []);
+    for (const cid of b.cases) {
+      const c = App.caseById(cid);
+      b.slots.forEach((_, i) => b.results[i].push(App.rollCase(c, 'Батл', App.fair.begin('battle'))));
+    }
+    b.shown = 0;
+    finish(b);
+  }
+
   function finish(b) {
+    if (b.finished) return;
+    b.finished = true;
     const totals = b.results.map((list) => list.reduce((a, it) => a + it.price, 0));
     const groups = groupsOf(b);
     const value = (g, arr) => g.reduce((a, i) => a + arr[i], 0);
@@ -219,7 +244,7 @@
       const gi = groups.findIndex((g) => (acc += value(g, totals) / (pot || 1)) > f);
       winners = groups[gi < 0 ? groups.length - 1 : gi];
       b.jackpot = { f, shares: groups.map((g) => value(g, totals) / (pot || 1)) };
-      App.fair.record(game.proof, { result: `Jackpot: колесо ${f.toFixed(4)} → место ${winners.map((i) => i + 1).join(', ')}` });
+      App.fair.record(game.proof, { shares: b.jackpot.shares, result: `Jackpot: колесо ${f.toFixed(4)} → сектор ${gi < 0 ? groups.length : gi + 1} (место ${winners.map((i) => i + 1).join(', ')})` });
     } else {
       const last = b.results.map((list) => (list.length ? list[list.length - 1].price : 0));
       const score = b.game === 'terminal' ? last : totals;
@@ -231,7 +256,8 @@
         const game = App.fair.begin('tiebreak');
         const idx = Math.floor(game.next() * cands.length);
         winners = cands[idx];
-        b.tiebreak = App.fair.record(game.proof, { slots: cands.length, result: `Тай-брейк: победил вариант ${idx + 1} из ${cands.length}` });
+        const seats = cands.map((g) => 'место ' + g.map((i) => i + 1).join(', '));
+        b.tiebreak = App.fair.record(game.proof, { slots: cands.length, seats, result: `Тай-брейк: ${cands.length} с равной суммой, победил кандидат ${idx + 1} (${seats[idx]})` });
       } else winners = cands[0];
     }
     b.winners = winners;
@@ -259,7 +285,8 @@
   /* ---------------- сам батл ---------------- */
   App.route('/battle/:id', (root, { id }) => {
     const b = battles.find((x) => x.id === id);
-    if (!b) return App.go('/battles');
+    // чужие лобби ботов по прямой ссылке не играются
+    if (!b || !b.results || !b.slots.some((s) => s && s.me)) return App.go('/battles');
     const fmt = FORMATS[b.format];
     const teamOf = (i) => (fmt.teams ? fmt.teams.findIndex((t) => t.includes(i)) : -1);
     let alive = true;
@@ -292,6 +319,7 @@
         cols[i].querySelector('.bt-player').innerHTML = s
           ? `${playerAva(s)}<div><b>${App.esc(s.nick)}${s.me ? ' (вы)' : ''}${s.bot ? ' <span class="badge badge-bot">бот</span>' : ''}</b>${App.coin(t[i])}</div>`
           : '<span class="ava ava-empty">?</span><div><b class="muted">Ожидание…</b></div>';
+        if (s && i >= (b.revealed ?? b.slots.length)) cols[i].querySelector('.bt-player').innerHTML = '<span class="ava ava-empty">?</span><div><b class="muted">Ожидание…</b></div>';
         const over = b.state === 'done' && b.winners;
         cols[i].classList.toggle('winner', !!(over && b.winners.includes(i)));
         cols[i].classList.toggle('loser', !!(over && !b.winners.includes(i)));
@@ -307,7 +335,7 @@
     drawItems();
 
     if (b.state === 'done') return showEnd(false);
-    if (b.state === 'running') {
+    if (b.animating) {
       // вернулись на страницу идущего батла — ждём окончания
       status('Батл идёт…');
       const t = setInterval(() => {
@@ -324,22 +352,14 @@
     run();
 
     async function run() {
+      b.animating = true;
       status('Ожидаем соперников…');
-      while (b.slots.includes(null)) {
+      while (b.revealed < b.slots.length) {
         await App.sleep(App.randInt(500, 1100));
-        b.slots[b.slots.indexOf(null)] = App.makeBot();
+        b.revealed++;
         if (alive) drawPlayers();
       }
-      b.state = 'running';
-      // Все броски делаются в момент старта и сразу засчитываются: анимация только показывает
-      // готовый результат, поэтому уход со страницы или F5 посреди батла ничего не меняет.
-      const plan = b.cases.map((cid) => {
-        const c = App.caseById(cid);
-        return b.slots.map(() => App.rollCase(c, 'Батл', App.fair.begin('battle')));
-      });
-      b.results = b.slots.map((_, i) => plan.map((round) => round[i]));
-      b.shown = 0;
-      finish(b);
+      const plan = b.cases.map((_, r) => b.slots.map((__, i) => b.results[i][r]));
       for (let n = 3; n > 0; n--) {
         if (alive) status(`<span class="bt-count">${n}</span>`);
         App.sound.click();
@@ -403,9 +423,13 @@
         <div class="row">${win ? sellBtn() : ''}<button class="btn btn-accent" id="btAgain">Повторить за ${App.coin(b.price)}</button></div></div>`);
       const s = App.$('#btSell');
       if (s) s.onclick = () => { App.sellItems(unsold()); s.remove(); };
-      App.$('#btAgain').onclick = () => {
+      const again = App.$('#btAgain');
+      again.onclick = () => {
+        if (again.disabled) return;
         if (!App.pay(b.price, 'Создание батла')) return;
+        again.disabled = true;
         const nb = createBattle(b.cases.slice(), b.format, b.game, App.me());
+        commit(nb);
         App.go('/battle/' + nb.id);
       };
     }
