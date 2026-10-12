@@ -81,6 +81,15 @@
       }
     }
 
+    // подтверждение вторым нажатием (без confirm(), который блокируют некоторые браузеры)
+    function armed(btn, text) {
+      if (btn.dataset.armed) return true;
+      btn.dataset.armed = '1';
+      btn.textContent = text;
+      setTimeout(() => btn.isConnected && draw(), 3000);
+      return false;
+    }
+
     function bind(inv) {
       App.$('#pfTabs').onclick = (e) => {
         const b = e.target.closest('button');
@@ -122,13 +131,13 @@
       if (ss) ss.onclick = () => { App.sellItems(Array.from(sel)); sel.clear(); draw(); };
       const sa = App.$('#pfSellAll');
       if (sa) sa.onclick = () => {
-        if (!confirm('Продать все предметы инвентаря?')) return;
+        if (!armed(sa, 'Точно продать всё?')) return;
         App.sellItems(inv.map((i) => i.uid));
         sel.clear();
         draw();
       };
       App.$('#pfReset').onclick = () => {
-        if (!confirm('Удалить весь прогресс, баланс и инвентарь?')) return;
+        if (!armed(App.$('#pfReset'), 'Нажмите ещё раз, чтобы удалить всё')) return;
         App.reset();
         App.toast('Прогресс сброшен', 'success');
         draw();
