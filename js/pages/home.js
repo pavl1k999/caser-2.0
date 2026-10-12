@@ -2,6 +2,7 @@
 (function () {
   'use strict';
   const GROUPS = [
+    { id: 'free', title: 'Бесплатные кейсы', icon: '🎁' },
     { id: 'popular', title: 'Популярные кейсы', icon: '🔥' },
     { id: 'elite', title: 'Элитные кейсы', icon: '👑' },
     { id: 'official', title: 'Официальные кейсы CS2', icon: '📦' },
@@ -43,7 +44,7 @@
       for (const g of GROUPS) {
         let list = App.cases.filter((c) => c.group === g.id);
         if (q) list = list.filter((c) => c.name.toLowerCase().includes(q));
-        if (afford) list = list.filter((c) => c.price <= st.balance);
+        if (afford) list = list.filter((c) => (c.free ? App.freeStatus(c).ok : c.price <= st.balance));
         if (sort === 'asc') list = list.slice().sort((a, b) => a.price - b.price);
         if (sort === 'desc') list = list.slice().sort((a, b) => b.price - a.price);
         if (!list.length) continue;

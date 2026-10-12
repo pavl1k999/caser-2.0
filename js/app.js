@@ -51,7 +51,7 @@
     let d = App.botDrop();
     if (Math.random() < 0.08) {
       const c = App.weighted(App.cases.filter((x) => x.price > 300), () => 1);
-      d = { it: App.rollCase(c), user: App.makeBot(), caseObj: c };
+      d = { it: App.rollCase(c, null, App.fair.random()), user: App.makeBot(), caseObj: c };
     }
     App.pushFeed(d);
     setTimeout(botLoop, App.randInt(1200, 4200));
@@ -87,7 +87,7 @@
     // в стартовой ленте пара «топовых» дропов
     for (let i = 0; i < 3; i++) {
       const c = App.pickOne(App.cases.filter((x) => x.group === 'elite'));
-      App.feed.splice(App.randInt(0, 12), 0, { it: App.rollCase(c), user: App.makeBot(), caseObj: c });
+      App.feed.splice(App.randInt(0, 12), 0, { it: App.rollCase(c, null, App.fair.random()), user: App.makeBot(), caseObj: c });
     }
     drawFeed();
     setTimeout(botLoop, 1500);

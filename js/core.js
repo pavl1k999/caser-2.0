@@ -68,11 +68,12 @@
   App.RARITY_ORDER = ['consumer', 'industrial', 'milspec', 'restricted', 'classified', 'covert', 'gold', 'contraband'];
   // должно совпадать с scripts/build_data.py
   App.WEARS = [
-    { short: 'FN', name: 'Прямо с завода', max: 0.07, mult: 1.6 },
-    { short: 'MW', name: 'Немного поношенное', max: 0.15, mult: 1.2 },
+    // множители цены — медианы Hellcase относительно Field-Tested
+    { short: 'FN', name: 'Прямо с завода', max: 0.07, mult: 2.8 },
+    { short: 'MW', name: 'Немного поношенное', max: 0.15, mult: 1.5 },
     { short: 'FT', name: 'После полевых испытаний', max: 0.38, mult: 1.0 },
-    { short: 'WW', name: 'Поношенное', max: 0.45, mult: 0.85 },
-    { short: 'BS', name: 'Закалённое в боях', max: 1.0, mult: 0.75 },
+    { short: 'WW', name: 'Поношенное', max: 0.45, mult: 0.94 },
+    { short: 'BS', name: 'Закалённое в боях', max: 1.0, mult: 0.89 },
   ];
   App.ST_CHANCE = 0.1;
   App.ST_MULT = 1.6;
@@ -115,10 +116,13 @@
   // создаёт экземпляр предмета (не добавляет в инвентарь)
   App.makeItem = (sid, opts = {}) => {
     const s = App.skin(sid);
-    const fl = opts.fl != null ? opts.fl : App.rand(s.min, s.max);
-    const wear = App.wearOf(fl);
+    const raw = opts.fl != null ? opts.fl : App.rand(s.min, s.max);
+    const wear = App.wearOf(raw);
+    // float храним с 6 знаками; округление не должно перекинуть предмет в соседний износ
+    let fl = Math.round(raw * 1e6) / 1e6;
+    if (App.wearOf(fl) !== wear) fl = fl > raw ? Math.floor(raw * 1e6) / 1e6 : Math.ceil(raw * 1e6) / 1e6;
     const st = opts.st != null ? opts.st : s.st && Math.random() < App.ST_CHANCE;
-    return { uid: App.uid(), sid, fl: Math.round(fl * 1e6) / 1e6, wear, st, price: App.priceOf(sid, wear, st), ts: Date.now(), src: opts.src || '', state: 'inv' };
+    return { uid: App.uid(), sid, fl, wear, st, price: App.priceOf(sid, wear, st), ts: Date.now(), src: opts.src || '', state: 'inv' };
   };
   App.itemName = (it) => {
     const s = App.skin(it.sid);
@@ -126,29 +130,99 @@
   };
 
   /* ---------------- кейсы ---------------- */
+  // границы float для конкретного износа с учётом диапазона скина
+  App.wearBounds = (s, wear) => [Math.max(s.min, wear ? App.WEARS[wear - 1].max : 0), Math.min(s.max, App.WEARS[wear].max - 1e-6)];
+
+  /*
+   * Кейсы — как у Hellcase / Key-Drop / Skin.club:
+   *  - у каждого предмета есть строки «износ × StatTrak», у каждой строки своя цена и число билетов из 100 000;
+   *  - шанс = билеты / 1000 %, диапазоны билетов идут подряд по возрастанию цены строки;
+   *  - выпадает ровно та строка, в чей диапазон попал билет; float выбирается внутри её износа.
+   */
+  App.TICKETS = 100000;
   App.cases = DB.cases.map((c) => {
-    const total = c.items.reduce((a, [, w]) => a + w, 0);
-    const items = c.items.map(([sid, w]) => ({ sid, chance: w / total, skin: App.skin(sid) }));
+    const rows = [];
+    const items = c.items.map(([sid, vs]) => {
+      const skin = App.skin(sid);
+      const card = { sid, skin, rows: [] };
+      for (const [wear, st, tickets] of vs) {
+        const r = { sid, skin, card, wear, st: !!st, tickets, chance: tickets / App.TICKETS, price: App.priceOf(sid, wear, !!st) };
+        card.rows.push(r);
+        rows.push(r);
+      }
+      card.tickets = card.rows.reduce((a, r) => a + r.tickets, 0);
+      card.chance = card.tickets / App.TICKETS;
+      card.price = card.rows.reduce((a, r) => a + r.price * r.tickets, 0) / card.tickets; // средняя цена дропа этого предмета
+      card.lo = Math.min(...card.rows.map((r) => r.price));
+      card.hi = Math.max(...card.rows.map((r) => r.price));
+      card.wear = card.rows.length === 1 ? card.rows[0].wear : null;
+      card.st = card.rows.length === 1 && card.rows[0].st;
+      return card;
+    });
+    rows.sort((a, b) => a.price - b.price || (a.sid < b.sid ? -1 : a.sid > b.sid ? 1 : a.wear - b.wear || a.st - b.st));
+    let from = 1;
+    for (const r of rows) {
+      r.from = from;
+      r.to = from + r.tickets - 1;
+      from = r.to + 1;
+    }
+    if (from !== App.TICKETS + 1) console.error(`Кейс ${c.id}: билетов ${from - 1} вместо ${App.TICKETS}`);
+    const ev = rows.reduce((a, r) => a + r.chance * r.price, 0);
     return {
       ...c,
       items,
+      rows,
+      ev,
+      rtp: c.price ? ev / c.price : 0,
+      payback: c.price ? rows.reduce((a, r) => a + (r.price >= c.price ? r.chance : 0), 0) : 0,
+      free: c.group === 'free',
       cover: c.img ? App.localImg('cases/' + c.id, DB.img + c.img + '/256fx256f') : App.skin(c.cover).img,
       isCrate: !!c.img,
     };
   });
   App.caseById = (id) => App.cases.find((c) => c.id === id);
-  App.rollCase = (c, src) => {
-    const pick = App.weighted(c.items, (x) => x.chance);
-    return App.makeItem(pick.sid, { src: src || c.name });
+  App.ticketOf = (f) => Math.floor(f * App.TICKETS) + 1;
+  App.rowByTicket = (c, ticket) => {
+    const r = c.rows.find((x) => ticket >= x.from && ticket <= x.to);
+    if (!r) throw new Error(`Билет ${ticket} вне таблицы кейса ${c.id}`);
+    return r;
   };
-  App.casePriceRange = (c) => {
-    let lo = Infinity, hi = 0;
-    for (const x of c.items) {
-      lo = Math.min(lo, App.priceOf(x.sid, x.skin.whi, false));
-      hi = Math.max(hi, App.priceOf(x.sid, x.skin.wlo, x.skin.st));
+  // отпечаток таблицы билетов: если данные пересоберут, старая проверка предупредит, что таблица другая
+  const tableHashes = new Map();
+  App.tableHash = (c) => {
+    if (!tableHashes.has(c.id)) {
+      tableHashes.set(c.id, App.fair.sha256Hex(c.rows.map((r) => `${r.sid}|${r.wear}|${+r.st}|${r.from}|${r.to}`).join('\n')).slice(0, 16));
     }
-    return [lo, hi];
+    return tableHashes.get(c.id);
   };
+
+  /**
+   * Открыть кейс. game — генератор из App.fair.begin() (provably fair) или App.fair.random() (боты).
+   * Курсор 0 — билет (строка: предмет + износ + StatTrak), курсор 1 — float внутри износа.
+   */
+  App.rollCase = (c, src, game) => {
+    game = game || App.fair.begin('case');
+    const ticket = App.ticketOf(game.next());
+    const r = App.rowByTicket(c, ticket);
+    const [lo, hi] = App.wearBounds(r.skin, r.wear);
+    const it = App.makeItem(r.sid, { fl: lo + (hi - lo) * game.next(), st: r.st, src: src || c.name });
+    if (game.proof) {
+      it.proof = { ...game.proof, caseId: c.id, ticket, table: App.tableHash(c) };
+      it.proof.id = App.fair.record(it.proof, { result: App.itemName(it), price: it.price });
+    }
+    return it;
+  };
+  // бесплатные кейсы: раз в 24 часа, с нужного уровня
+  App.FREE_COOLDOWN = 24 * 3600 * 1000;
+  App.freeStatus = (c) => {
+    const lvl = App.levelInfo().lvl;
+    if (lvl < c.level) return { ok: false, why: `с ${c.level} уровня` };
+    const last = (App.state.freeCases || {})[c.id] || 0;
+    const left = last + App.FREE_COOLDOWN - Date.now();
+    if (left > 0) return { ok: false, left, why: `через ${App.timeLeft(left)}` };
+    return { ok: true };
+  };
+  App.casePriceRange = (c) => [c.rows[0].price, c.rows[c.rows.length - 1].price];
 
   // каталог для апгрейда и контрактов: все скины во всех доступных износах
   let catalog = null;
@@ -165,7 +239,8 @@
     return catalog;
   };
   // ближайший по цене предмет каталога (бинарный поиск + случайный разброс среди соседей)
-  App.catalogNear = (price, spread = 6) => {
+  // f — необязательное число [0,1) из provably fair для выбора среди соседей
+  App.catalogNear = (price, spread = 6, f = Math.random()) => {
     const cat = App.catalog();
     let lo = 0, hi = cat.length - 1;
     while (lo < hi) {
@@ -173,7 +248,7 @@
       if (cat[m].price < price) lo = m + 1;
       else hi = m;
     }
-    const i = Math.min(cat.length - 1, Math.max(0, lo + App.randInt(-spread, spread)));
+    const i = Math.min(cat.length - 1, Math.max(0, lo + Math.floor(f * (2 * spread + 1)) - spread));
     return cat[i];
   };
   App.itemFromCatalog = (e, src) => {

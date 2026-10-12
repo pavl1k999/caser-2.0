@@ -45,7 +45,7 @@
     return `<a class="ccard ${c.isCrate ? 'is-crate' : 'is-custom'}" href="#/case/${c.id}" style="--cc:${c.color || '#ffb400'}">
       <div class="cc-img">${c.isCrate ? '' : '<div class="cc-glow"></div><div class="cc-box"></div>'}${imgTag(c.cover)}</div>
       <div class="cc-name">${esc(c.name)}</div>
-      <div class="cc-price">${App.coin(c.price)}</div>
+      <div class="cc-price">${c.free ? (App.levelInfo().lvl >= c.level ? 'Бесплатно' : `🔒 ${c.level} ур.`) : App.coin(c.price)}</div>
     </a>`;
   };
 
@@ -149,7 +149,7 @@
   const cheapWeight = (c) => 1 / Math.sqrt(c.price + 5);
   App.botDrop = () => {
     const c = App.weighted(App.cases, cheapWeight);
-    const it = App.rollCase(c);
+    const it = App.rollCase(c, null, App.fair.random());
     return { it, user: App.makeBot(), caseObj: c };
   };
   App.pushFeed = (entry) => {

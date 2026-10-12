@@ -591,4 +591,92 @@ input:focus, select:focus { border-color: var(--accent); }
 .sync.s-idle { color: var(--green); }
 .sync.s-error { color: var(--red); }
 img.ava { object-fit: cover; background: var(--panel2); }
-@media (max-width: 1180px) { .hdr-right .steam-btn span { display: none; } .hdr-right .steam-btn { padding: 0 11px; } }
+.sb-short { display: none; }
+@media (max-width: 1500px) { .hdr-right .sb-full { display: none; } .hdr-right .sb-short { display: inline; } }
+@media (max-width: 1180px) { .hdr-right .sb-short { display: none; } .hdr-right .steam-btn { padding: 0 11px; } }
+
+/* ---------- шансы и provably fair ---------- */
+.contents-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+.contents-head .sec-title { margin: 0; }
+.odds-box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 14px 0; display: flex; flex-direction: column; gap: 10px; }
+.odds-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; gap: 2px; background: var(--bg2); }
+.odds-bar i { min-width: 3px; }
+.odds-legend, .odds-stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); }
+.odds-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.odds-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.odds-legend b, .odds-stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+.odds-stats a { color: var(--accent); margin-left: auto; }
+.ic-chance { font-variant-numeric: tabular-nums; }
+.ic-range { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.icard.avg .ic-price::before { content: '≈'; color: var(--muted); margin-right: 2px; }
+.ic-proof { display: block; font-size: 11.5px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.ic-proof:hover { color: var(--accent); }
+.fair-line { margin-top: 14px; text-align: center; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 6px; }
+.fair-line code, .fair code { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--bg2); border: 1px solid var(--line); padding: 1px 6px; border-radius: 6px; color: var(--text); word-break: break-all; }
+.fair-line a { color: var(--accent); }
+.lock-ic {
+  width: 13px; height: 13px; display: inline-block; background: var(--green);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 10V8a6 6 0 1 1 12 0v2h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1zm2 0h8V8a4 4 0 1 0-8 0z'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 10V8a6 6 0 1 1 12 0v2h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1zm2 0h8V8a4 4 0 1 0-8 0z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.fair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.fair .panel { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.fair h3 { margin: 0; font-size: 17px; }
+.kv { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px 12px; align-items: center; font-size: 13.5px; }
+.kv > span { color: var(--muted); }
+.fair-form { display: grid; gap: 10px; }
+.fair-form label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.fair-form input, .fair-form select { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+.fair-out { display: grid; gap: 8px; }
+.fair-out .ok { color: var(--green); } .fair-out .bad { color: var(--red); }
+.fair-hl { color: var(--accent); font-weight: 700; }
+.fair-hist { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.fair-hist td { padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.fair-hist-wrap { overflow-x: auto; }
+.fair-note { font-size: 13px; color: var(--muted); line-height: 1.55; max-width: 75ch; }
+.fair-algo { font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow-x: auto; white-space: pre; color: var(--text); }
+@media (max-width: 980px) { .fair { grid-template-columns: minmax(0, 1fr); } .kv { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .kv > span { margin-top: 6px; } }
+.odds-stats a + a { margin-left: 0; }
+.icard.from .ic-price::before { content: 'от'; color: var(--muted); margin-right: 4px; font-weight: 500; }
+.odds-table-wrap { overflow-x: auto; max-height: 60vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; }
+.odds-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.odds-table th { position: sticky; top: 0; background: var(--panel2); text-align: left; font-weight: 600; color: var(--muted); padding: 8px 10px; }
+.odds-table td { padding: 7px 10px; border-top: 1px solid var(--line); white-space: nowrap; }
+.odds-table td:first-child { white-space: normal; min-width: 180px; }
+.odds-table td i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--rc); margin-right: 8px; }
+.odds-table .st { color: #ff8b3d; font-size: 11px; }
+.up-roll { font-size: 12px; color: var(--muted); margin-top: 4px; min-height: 16px; text-align: center; }
+.up-roll a { color: var(--accent); }
+.up-arc { transition: stroke-dasharray .4s, stroke-dashoffset .4s; }
+.badge { margin-left: 6px; vertical-align: middle; }
+.badge-terminal { background: #4b69ff2e; color: #8ea2ff; }
+.badge-jackpot { background: #ffb40026; color: var(--accent); }
+.badge-group { background: #2fd27a22; color: var(--green); }
+.badge-bot { background: var(--panel3); color: var(--muted); font-size: 10.5px; padding: 1px 6px; }
+.bmodes { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin: 6px 0 4px; }
+.bmodes b { color: var(--text); }
+.bt-cols.n6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.bt-cols.n6 .bt-items { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+.ct-modes { width: 100%; }
+.ct-modes button { flex: 1; }
+@media (max-width: 1180px) { .bt-cols.n6 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .bt-cols.n6 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------- колесо бонусов и бесплатные кейсы ---------- */
+.wheel-box { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; align-items: center; margin-top: 18px; }
+.wheel-wrap { position: relative; width: 300px; height: 300px; max-width: 100%; }
+.wheel { width: 100%; height: 100%; border-radius: 50%; position: relative; box-shadow: 0 0 0 6px var(--panel2), 0 0 0 7px var(--line), 0 20px 40px #0008; will-change: transform; }
+.wheel span { position: absolute; left: 50%; top: 0; height: 50%; width: 0; transform-origin: 50% 100%; display: flex; justify-content: center; }
+.wheel span b { margin-top: 14px; font-size: 13px; font-weight: 800; color: #fff; text-shadow: 0 1px 3px #000c; white-space: nowrap; transform: translateX(-50%); position: absolute; left: 0; }
+.wheel-ptr { position: absolute; left: 50%; top: -6px; transform: translateX(-50%); z-index: 2; border: 13px solid transparent; border-top: 24px solid #fff; filter: drop-shadow(0 2px 6px #000c); }
+.wheel-hub { position: absolute; inset: 37%; border-radius: 50%; background: radial-gradient(circle, var(--panel2), var(--bg2)); display: grid; place-items: center; font-weight: 800; font-size: 20px; color: var(--accent); box-shadow: 0 0 0 4px #0006; }
+.wheel-side { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.wheel-side h3 { margin: 0; font-size: 22px; }
+.wheel-side p { margin: 0; max-width: 60ch; }
+.wheel-odds { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.wheel-odds i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+#wRes a { color: var(--accent); }
+.cc-free { font-size: 12.5px; color: var(--muted); }
+.cc-free.ok { color: var(--green); font-weight: 600; }
+@media (max-width: 640px) { .wheel-box { grid-template-columns: minmax(0, 1fr); justify-items: center; } .wheel-wrap { width: 260px; height: 260px; } }
+.fair-hl2 { color: #8ea2ff; font-weight: 700; }

@@ -23,8 +23,12 @@
 const STEAM_OPENID = 'https://steamcommunity.com/openid/login';
 const OPENID_NS = 'http://specs.openid.net/auth/2.0';
 const IDENTIFIER_SELECT = 'http://specs.openid.net/auth/2.0/identifier_select';
-const CLAIMED_ID_RE = /^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/;
-const TOKEN_TTL = 30 * 24 * 3600; // 30 дней
+const CLAIMED_ID_RE = /^https:\/\/steamcommunity\.com\/openid\/id\/(7656\d{13})\/?$/;
+// поля, которые Steam обязан подписать (как проверяет xPaw/SteamOpenID.php)
+const MUST_SIGN = ['op_endpoint', 'claimed_id', 'identity', 'return_to', 'response_nonce'];
+const TOKEN_TTL = 7 * 24 * 3600; // 7 дней
+const TOKEN_VERSION = 1;
+const STEAM_TIMEOUT = 8000;
 const NONCE_MAX_AGE = 5 * 60; // ответ Steam действителен 5 минут
 const MAX_STATE_BYTES = 1024 * 1024;
 
@@ -33,7 +37,8 @@ export default {
     try {
       return await route(request, env);
     } catch (e) {
-      return json({ error: 'internal', message: String(e && e.message || e) }, 500, cors(request, env));
+      console.error(e);
+      return json({ error: 'internal' }, 500, cors(request, env));
     }
   },
 };
@@ -90,10 +95,15 @@ function safeReturn(raw, env) {
   return u.toString();
 }
 
+// state — случайная строка со страницы сайта: защищает от подсовывания чужого входа (login CSRF)
+const STATE_RE = /^[A-Za-z0-9_-]{8,64}$/;
+
 function login(url, env) {
   const ret = safeReturn(url.searchParams.get('return'), env);
   if (!ret) return text('Недопустимый адрес возврата. Добавьте адрес сайта в ALLOWED_ORIGINS.', 400);
-  const returnTo = `${url.origin}/auth/steam/callback?return=${encodeURIComponent(ret)}`;
+  const state = url.searchParams.get('state') || '';
+  if (!STATE_RE.test(state)) return text('Нет параметра state.', 400);
+  const returnTo = `${url.origin}/auth/steam/callback?return=${encodeURIComponent(ret)}&state=${state}`;
   const q = new URLSearchParams({
     'openid.ns': OPENID_NS,
     'openid.mode': 'checkid_setup',
@@ -109,12 +119,16 @@ async function callback(url, env) {
   const p = url.searchParams;
   const ret = safeReturn(p.get('return'), env);
   if (!ret) return text('Недопустимый адрес возврата.', 400);
-  const back = (hash) => Response.redirect(`${ret}#/auth/${hash}`, 302);
+  const state = p.get('state') || '';
+  if (!STATE_RE.test(state)) return text('Нет параметра state.', 400);
+  const back = (hash) => Response.redirect(`${ret}#/auth/${hash}/${state}`, 302);
 
   if (p.get('openid.mode') !== 'id_res') return back('error-cancelled');
   if (p.get('openid.ns') !== OPENID_NS || p.get('openid.op_endpoint') !== STEAM_OPENID) return back('error-invalid');
   const m = CLAIMED_ID_RE.exec(p.get('openid.claimed_id') || '');
   if (!m || p.get('openid.identity') !== p.get('openid.claimed_id')) return back('error-invalid');
+  const signed = String(p.get('openid.signed') || '').split(',');
+  if (!MUST_SIGN.every((f) => signed.includes(f))) return back('error-invalid');
 
   // return_to в ответе обязан совпадать с адресом, на который пришёл ответ
   let rt;
@@ -123,54 +137,85 @@ async function callback(url, env) {
   } catch (e) {
     return back('error-invalid');
   }
-  if (rt.origin + rt.pathname !== url.origin + url.pathname || rt.searchParams.get('return') !== p.get('return')) {
+  if (
+    rt.origin + rt.pathname !== url.origin + url.pathname ||
+    rt.searchParams.get('return') !== p.get('return') ||
+    rt.searchParams.get('state') !== state
+  ) {
     return back('error-invalid');
   }
 
-  // свежесть и одноразовость ответа
+  // свежесть ответа (Steam сам подтверждает каждый ответ только один раз)
   const nonce = p.get('openid.response_nonce') || '';
   const ts = Date.parse(nonce.slice(0, 20));
   if (!ts || Math.abs(Date.now() - ts) > NONCE_MAX_AGE * 1000) return back('error-expired');
-  if (env.STATE) {
-    const key = 'nonce:' + nonce;
-    if (await env.STATE.get(key)) return back('error-replay');
-    await env.STATE.put(key, '1', { expirationTtl: 3600 });
-  }
+  const nonceKey = 'nonce:' + nonce;
+  if (env.STATE && (await env.STATE.get(nonceKey))) return back('error-replay');
 
-  // проверка подписи на стороне Steam
+  // проверка подписи на стороне Steam: всегда на зашитый адрес, а не на присланный op_endpoint
   const body = new URLSearchParams();
   for (const [k, v] of p) if (k.startsWith('openid.')) body.set(k, v);
   body.set('openid.mode', 'check_authentication');
-  const res = await fetch(STEAM_OPENID, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-  const answer = await res.text();
-  if (!res.ok || !/(^|\n)is_valid\s*:\s*true(\n|$)/.test(answer)) return back('error-invalid');
+  let res, answer;
+  try {
+    res = await fetch(STEAM_OPENID, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body,
+      signal: AbortSignal.timeout(STEAM_TIMEOUT),
+    });
+    answer = await res.text();
+  } catch (e) {
+    return back('error-steam');
+  }
+  if (res.status === 403 || res.status === 429) return back('error-ratelimit');
+  if (!res.ok) return back('error-steam');
+  if (!/(^|\n)is_valid\s*:\s*true(\r?\n|$)/.test(answer) || !/(^|\n)ns\s*:\s*http:\/\/specs\.openid\.net\/auth\/2\.0(\r?\n|$)/.test(answer)) {
+    return back('error-invalid');
+  }
+  // отметку об использованном ответе пишем только после успешной проверки (бережём лимит записей KV)
+  if (env.STATE) await env.STATE.put(nonceKey, '1', { expirationTtl: 3600 });
 
   const sid = m[1];
   const profile = await steamProfile(sid, env);
   const now = Math.floor(Date.now() / 1000);
-  const token = await sign({ sid, name: profile.name, avatar: profile.avatar, iat: now, exp: now + TOKEN_TTL }, env);
+  const token = await sign({ v: TOKEN_VERSION, aud: new URL(ret).origin, sid, name: profile.name, avatar: profile.avatar, iat: now, exp: now + TOKEN_TTL }, env);
   return back(token);
 }
 
 async function steamProfile(sid, env) {
   const fallback = { name: 'Steam ' + sid.slice(-4), avatar: '' };
-  if (!env.STEAM_API_KEY) return fallback;
-  try {
-    const r = await fetch(
-      `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${encodeURIComponent(env.STEAM_API_KEY)}&steamids=${sid}`
-    );
-    const d = await r.json();
-    const pl = d && d.response && d.response.players && d.response.players[0];
-    if (!pl) return fallback;
-    return { name: String(pl.personaname || fallback.name).slice(0, 32), avatar: String(pl.avatarfull || pl.avatarmedium || '') };
-  } catch (e) {
-    return fallback;
+  // 1) Steam Web API, если задан ключ
+  if (env.STEAM_API_KEY) {
+    try {
+      // ключ — в заголовке x-webapi-key, чтобы не светить его в адресе; если Steam его не принял — параметром
+      const base = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?steamids=${sid}`;
+      let r = await fetch(base, { headers: { 'x-webapi-key': env.STEAM_API_KEY }, signal: AbortSignal.timeout(STEAM_TIMEOUT) });
+      if (r.status === 401 || r.status === 403) {
+        r = await fetch(`${base}&key=${encodeURIComponent(env.STEAM_API_KEY)}`, { signal: AbortSignal.timeout(STEAM_TIMEOUT) });
+      }
+      const d = await r.json();
+      const pl = d && d.response && d.response.players && d.response.players[0];
+      if (pl) return { name: clean(pl.personaname) || fallback.name, avatar: safeUrl(pl.avatarfull || pl.avatarmedium) };
+    } catch (e) { /* пробуем публичный профиль */ }
   }
+  // 2) публичный XML-профиль: ключ не нужен (работает, если профиль открыт)
+  try {
+    const r = await fetch(`https://steamcommunity.com/profiles/${sid}/?xml=1`, { signal: AbortSignal.timeout(STEAM_TIMEOUT) });
+    const xml = await r.text();
+    const tag = (t) => {
+      const m = new RegExp(`<${t}>\\s*(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([^<]*))\\s*</${t}>`).exec(xml);
+      return m ? (m[1] != null ? m[1] : m[2]) : '';
+    };
+    const name = clean(tag('steamID'));
+    if (name) return { name, avatar: safeUrl(tag('avatarFull') || tag('avatarMedium')) };
+  } catch (e) { /* ignore */ }
+  return fallback;
 }
+
+const clean = (s) => String(s || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 32);
+// аватар — только https-ссылка на CDN Steam
+const safeUrl = (u) => (/^https:\/\/[a-z0-9.-]+\.(steamstatic|akamaihd|steampowered|steamcommunity)\.(com|net)\//i.test(String(u || '')) ? String(u) : '');
 
 /* ---------------- токены ---------------- */
 
@@ -207,7 +252,7 @@ async function verify(token, env) {
   } catch (e) {
     return null;
   }
-  if (!data || !/^\d{17}$/.test(data.sid) || !(data.exp > Date.now() / 1000)) return null;
+  if (!data || data.v !== TOKEN_VERSION || !/^7656\d{13}$/.test(data.sid) || !(data.exp > Date.now() / 1000)) return null;
   return data;
 }
 

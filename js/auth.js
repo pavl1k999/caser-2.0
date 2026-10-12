@@ -4,8 +4,10 @@
   const STEAM_OPENID = 'https://steamcommunity.com/openid/login';
   const OPENID_NS = 'http://specs.openid.net/auth/2.0';
   const IDENTIFIER_SELECT = 'http://specs.openid.net/auth/2.0/identifier_select';
-  const CLAIMED_ID_RE = /^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/;
-  const SYNC_DELAY = 4000;
+  const CLAIMED_ID_RE = /^https:\/\/steamcommunity\.com\/openid\/id\/(7656\d{13})\/?$/;
+  // бесплатный KV Cloudflare — 1000 записей в сутки, поэтому в облако пишем не чаще раза в минуту и при уходе со страницы
+  const SYNC_DELAY = 60000;
+  const STATE_KEY = 'casesim_login_state';
 
   const api = () => App.config.authApi;
   const siteBase = () => location.origin + location.pathname;
@@ -29,7 +31,10 @@
       return;
     }
     if (api()) {
-      location.href = `${api()}/auth/steam?return=${encodeURIComponent(siteBase())}`;
+      // одноразовый state против подмены входа (login CSRF): сервер вернёт его вместе с токеном
+      const state = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+      try { sessionStorage.setItem(STATE_KEY, state); } catch (e) { /* ignore */ }
+      location.href = `${api()}/auth/steam?return=${encodeURIComponent(siteBase())}&state=${state}`;
       return;
     }
     const q = new URLSearchParams({
@@ -89,12 +94,23 @@
     'error-invalid': 'Steam не подтвердил вход. Попробуйте ещё раз',
     'error-expired': 'Ответ Steam устарел. Попробуйте ещё раз',
     'error-replay': 'Эта ссылка входа уже использована',
+    'error-steam': 'Steam не ответил. Попробуйте ещё раз',
+    'error-ratelimit': 'Steam временно ограничил вход, попробуйте через минуту',
   };
 
-  // Возврат с сервера: #/auth/<token>
-  App.route('/auth/:token', (root, { token }) => {
+  // Возврат с сервера: #/auth/<token>/<state>
+  App.route('/auth/:token/:state', (root, { token, state }) => {
+    let expected = null;
+    try {
+      expected = sessionStorage.getItem(STATE_KEY);
+      sessionStorage.removeItem(STATE_KEY);
+    } catch (e) { /* ignore */ }
     // заменяем адрес с токеном, чтобы он не остался в истории браузера
     const toProfile = () => location.replace(siteBase() + '#/profile');
+    if (!expected || expected !== state) {
+      App.toast('Вход не подтверждён: начните его заново кнопкой «Войти через Steam» на этом сайте', 'error');
+      return toProfile();
+    }
     if (ERRORS[token]) {
       App.toast(ERRORS[token], 'error');
       return toProfile();
@@ -103,7 +119,7 @@
     try {
       data = JSON.parse(fromB64url(token.split('.')[0]));
     } catch (e) { /* ignore */ }
-    if (!data || !/^\d{17}$/.test(data.sid) || !(data.exp > Date.now() / 1000)) {
+    if (!data || !/^7656\d{13}$/.test(data.sid) || !(data.exp > Date.now() / 1000)) {
       App.toast('Не удалось войти: повреждённый токен', 'error');
       return toProfile();
     }
@@ -181,13 +197,15 @@
     clearTimeout(timer);
     timer = setTimeout(push, SYNC_DELAY);
   });
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && cloudOn() && timer) {
+  const flush = () => {
+    if (cloudOn() && timer) {
       clearTimeout(timer);
       timer = null;
       push();
     }
-  });
+  };
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flush());
+  window.addEventListener('pagehide', flush);
 
   auth.init = () => {
     const s = App.session;
