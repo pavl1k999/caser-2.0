@@ -79,16 +79,12 @@
   /* ---------------- список ---------------- */
   App.route('/battles', (root) => {
     root.innerHTML = `
-      <div class="page-head">
-        <h1 class="page-title">Батлы</h1>
-        <button class="btn btn-accent" id="newBattle">+ Создать батл</button>
-      </div>
-      <p class="muted">Все участники открывают одинаковые кейсы. Вход равен сумме цен кейсов, без комиссии. Соперники — боты, все броски provably fair.</p>
+      ${App.pageHead('Батлы', 'Все открывают одинаковые кейсы, вход = сумма цен кейсов без комиссии. Соперники — боты, все броски provably fair.', 'crosshair', '#ff4d5e', '<button class="btn btn-accent btn-lg" id="newBattle">+ Создать батл</button>')}
       <div class="bmodes">${Object.values(GAMES).map((g) => `<span><b>${g.name}</b> — ${g.hint.toLowerCase()}</span>`).join('')}</div>
       <div class="blist" id="blist"></div>`;
     const draw = () => {
       const list = battles.filter((b) => b.state !== 'done' || b.slots.some((s) => s && s.me));
-      App.$('#blist').innerHTML = list.length ? list.map(row).join('') : '<div class="empty">Пока нет батлов — создайте свой!</div>';
+      App.$('#blist').innerHTML = list.length ? list.map(row).join('') : App.emptyState('Пока нет батлов — создайте свой!', 'crosshair');
     };
     const row = (b) => {
       const mine = b.slots.some((s) => s && s.me);

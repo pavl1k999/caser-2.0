@@ -102,11 +102,11 @@ THEMES = [
         "colors": ["#ff8a00", "#3b1200", "#ffe066"],
         "patterns": ["Phoenix", "Wing", "Feather", "Bird", "Plume", "Hawk", "Crane", "Fowl", "Icarus",
                      "Nevermore", "Circaetus", "Stymphalian", "Flock", "Daybreak", "Rising Sun", "Morning Sun",
-                     "Setting Sun", "Sundown", "Angel", "Heaven Guard", "Guardian", "Sovereign Flame",
+                     "Setting Sun", "Sundown", "Angel", "Heaven Guard", "Sovereign Flame",
                      "Chantico", "Griffin", "Fire Elemental"],
         "gold": 3, "gold_patterns": ["Fade", "Brocade Crane", "Sunburst", "Slaughter", "Ruby", "Plum Quill",
                                      "Cloud Chaser"],
-        "size": 38, "tier": "mid",
+        "size": 36, "tier": "mid",
     },
     {
         "id": "poseidon", "name": "Посейдон", "series": "Мифы", "emblem": "trident", "style": "lux",
@@ -157,20 +157,20 @@ THEMES = [
                      "Phobos", "Colony", "Off World", "Battlestar", "Starlight", "Zirka", "in Libra", "in Leo",
                      "Mystic Conjunction", "Exo", "Uncharted", "Moonrise", "Re-Entry", "Airlock", "Sputnik",
                      "Doppler"],
-        "exclude": ["Exothermic"],
+        "exclude": ["Exothermic", "Exoskeleton"],
         "gold": 4, "gold_patterns": ["Doppler", "Black Pearl", "Ultraviolet", "Marble Fade", "Nocts"],
         "size": 36, "tier": "high",
     },
     {
         "id": "rocket", "name": "Ракета", "series": "Космос", "emblem": "rocket", "style": "tech",
         "colors": ["#ff4b4b", "#1a1030", "#ffb03a"],
+        # полёт и тяга: ракеты, самолёты, нитро/турбо; чисто автомобильные паттерны
+        # (Hand Brake, Roll Cage, Check Engine, Road Rash, Rat Rod, Grand Prix…) в «Ракету» не берём
         "patterns": ["Rocket", "Sputnik", "Space Race", "Re-Entry", "Airlock", "Pilot", "Jet Set", "Turbo",
                      "Nitro", "Throttle", "Fuel Injector", "Aerial", "Slipstream", "Momentum", "Stratosphere",
-                     "Warhawk", "Warbird", "Afterimage", "Hot Rod", "Grand Prix", "Pole Position", "Fully Tuned",
-                     "Check Engine", "Hand Brake", "Roll Cage", "Brake Light", "Road Rash", "Rat Rod",
-                     "Motorized", "High Beam", "Redline", "Rapid Transit"],
+                     "Warhawk", "Warbird", "Afterimage", "Redline"],
         "gold": 3, "gold_patterns": ["Red Racer", "Finish Line", "Overtake", "Racing Green", "Autotronic"],
-        "size": 40, "tier": "mid",
+        "size": 30, "tier": "mid",
     },
     # ------------------------------------------------------------------- Улицы
     {
@@ -191,7 +191,7 @@ THEMES = [
                      "Aztec", "Ancient Ritual", "Akoben", "Mischief", "Just Smile", "Neo-Noir", "Vogue",
                      "Fever Dream", "Akihabara", "Temukau", "Sakkaku", "The Emperor", "The Empress", "Traitor",
                      "Executioner", "The Prince", "Duelist", "Queen", "Sultan"],
-        "exclude": ["Damask"],
+        "exclude": ["Damask", "Queen's Gambit"],
         "gold": 3, "gold_patterns": ["Crimson Kimono", "Bronze Morph", "Occult", "Vice", "Pandora's Box",
                                      "Slaughter"],
         "size": 40, "tier": "high",
@@ -203,6 +203,7 @@ THEMES = [
                      "Grim", "Skull", "Death", "Bone", "Mortis", "Macabre", "Grave", "Catacombs", "Entombed",
                      "Curse", "Ossified", "Yorick", "Memento", "Hades", "Styx", "Acheron", "Cerberus",
                      "Survivor Z", "Night Terror", "Nightmare"],
+        "exclude": ["Death by"],  # мультяшные Death by Kitty / Death by Puppy — это в «Аркаду»
         "gold": 3, "gold_patterns": ["Cobalt Skulls", "Occult", "Nocts", "Black Laminate", "Night", "Stained"],
         "size": 42, "tier": "mid",
     },
@@ -308,13 +309,13 @@ THEMES = [
         "gold": 2, "gold_patterns": KNIFE_GOLD, "size": 45, "tier": "mid",
     },
     {
-        "id": "awp", "name": "AWP", "series": "Оружие", "emblem": "crosshair", "style": "military",
+        "id": "awp", "name": "Авик", "series": "Оружие", "emblem": "crosshair", "style": "military",
         "colors": ["#00b4a6", "#04211f", "#7cffcb"],
         "patterns": [], "weapons": ["AWP"],
         "gold": 2, "gold_patterns": KNIFE_GOLD, "size": 45, "tier": "high",
     },
     {
-        "id": "m4", "name": "M4", "series": "Оружие", "emblem": "shield", "style": "military",
+        "id": "m4", "name": "Эмка", "series": "Оружие", "emblem": "shield", "style": "military",
         "colors": ["#3a7bd5", "#081a33", "#9be7ff"],
         "patterns": [], "weapons": ["M4A4", "M4A1-S"],
         "gold": 2, "gold_patterns": KNIFE_GOLD, "size": 50, "tier": "mid",

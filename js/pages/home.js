@@ -63,7 +63,7 @@
         const list = App.cases.filter(ok).sort((a, b) => (sort === 'asc' ? a.price - b.price : b.price - a.price));
         html = `<section class="series"><div class="cgrid">${list.map(App.caseCard).join('')}</div></section>`;
       }
-      App.$('#caseGroups').innerHTML = html || '<div class="empty">Ничего не найдено</div>';
+      App.$('#caseGroups').innerHTML = html || App.emptyState('Ничего не найдено', 'eye');
     };
     App.$('#caseSearch').oninput = draw;
     App.$('#caseAfford').onchange = draw;

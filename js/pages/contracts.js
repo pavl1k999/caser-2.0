@@ -25,7 +25,7 @@
     let busy = false;
     let mode = 'medium';
     root.innerHTML = `
-      <h1 class="page-title">Контракты</h1>
+      ${App.pageHead('Контракты', 'Отдай от 3 до 10 скинов — получи один новый. Чем сложнее режим, тем шире разброс цены.', 'dice', '#7c5cff')}
       <section class="ct-stage panel">
         <div class="ct-slots" id="ctSlots"></div>
         <div class="ct-side">
@@ -62,7 +62,7 @@
       App.$('#ctCount').textContent = inv.length ? inv.length + ' шт.' : '';
       App.$('#ctInv').innerHTML = inv.length
         ? inv.map((it) => App.itemCard(it, { cls: 'pick ' + (sel.has(it.uid) ? 'sel' : '') })).join('')
-        : '<div class="empty">Инвентарь пуст. <a href="#/">Откройте пару кейсов</a></div>';
+        : App.emptyState('Инвентарь пуст', 'ghost', '<a class="btn btn-accent btn-sm" href="#/">Открыть пару кейсов</a>');
     }
     const toggle = (e) => {
       const card = e.target.closest('.icard');

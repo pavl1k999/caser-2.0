@@ -19,7 +19,7 @@
     let dir = 'under';
 
     root.innerHTML = `
-      <h1 class="page-title">Апгрейд</h1>
+      ${App.pageHead('Апгрейд', 'Поставь скины или монеты и рискни ради более дорогого предмета. Шанс = ставка / цель × 90%.', 'rocket', '#2fd27a')}
       <section class="up-stage">
         <div class="up-slot" id="upFrom"></div>
         <div class="up-wheel">
@@ -107,7 +107,7 @@
       App.$('#invCount').textContent = inv.length ? inv.length + ' шт.' : '';
       App.$('#upInv').innerHTML = inv.length
         ? inv.map((it) => App.itemCard(it, { cls: 'pick ' + (sel.has(it.uid) ? 'sel' : '') })).join('')
-        : '<div class="empty">Инвентарь пуст. <a href="#/">Откройте кейс</a></div>';
+        : App.emptyState('Инвентарь пуст', 'ghost', '<a class="btn btn-accent btn-sm" href="#/">Открыть кейс</a>');
     }
     function drawCat() {
       const min = Math.max(stake() * MIN_MULT, 0.05);
@@ -121,7 +121,7 @@
       list = list.slice(0, 120);
       App.$('#upCat').innerHTML = list.length
         ? list.map((e) => App.itemCard(e, { cls: 'pick ' + (target && target.sid === e.sid && target.wear === e.wear ? 'sel' : ''), attrs: `data-sid="${e.sid}" data-w="${e.wear}"` })).join('')
-        : '<div class="empty">Нет подходящих предметов</div>';
+        : App.emptyState('Нет подходящих предметов', 'eye');
     }
     function drawAll() {
       if (target && target.price < stake() * MIN_MULT - 1e-9) target = null;

@@ -779,3 +779,22 @@ img.ava { object-fit: cover; background: var(--panel2); }
 @keyframes balUp { 30% { box-shadow: 0 0 0 3px #2fd27a66, 0 0 24px #2fd27a55; transform: scale(1.04); } }
 @keyframes balDown { 30% { box-shadow: 0 0 0 3px #ff4d5e44; } }
 body.guest .mnav a[href="#/profile"] { opacity: .7; }
+
+/* ---------- шапки разделов и пустые состояния ---------- */
+.page-hero {
+  --ph: var(--accent);
+  position: relative; overflow: hidden; display: flex; align-items: center; gap: 18px; padding: 18px 22px; margin-bottom: 18px; border-radius: 20px;
+  background: radial-gradient(360px 160px at 0% 50%, color-mix(in srgb, var(--ph) 30%, transparent), transparent 70%), linear-gradient(120deg, color-mix(in srgb, var(--ph) 12%, #131626), #0f1220 70%);
+  border: 1px solid color-mix(in srgb, var(--ph) 25%, var(--line));
+}
+.page-hero::after { content: ''; position: absolute; right: -40px; top: -60px; width: 220px; height: 220px; border-radius: 50%; border: 28px solid color-mix(in srgb, var(--ph) 10%, transparent); pointer-events: none; }
+.ph-ic { flex: none; width: 62px; height: 62px; border-radius: 18px; display: grid; place-items: center; color: var(--ph); background: color-mix(in srgb, var(--ph) 16%, #0b0d16); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ph) 35%, transparent), 0 0 30px -6px var(--ph); }
+.ph-ic svg { width: 38px; height: 38px; filter: drop-shadow(0 0 8px color-mix(in srgb, var(--ph) 60%, transparent)); }
+.ph-txt { min-width: 0; flex: 1; }
+.ph-txt .page-title { margin: 0 0 4px; }
+.ph-txt p { margin: 0; color: #c3c8da; max-width: 70ch; font-size: 14px; }
+.ph-extra { position: relative; z-index: 1; }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.empty-ic { width: 56px; height: 56px; color: var(--panel3); }
+@media (max-width: 640px) { .page-hero { padding: 14px; gap: 12px; } .ph-ic { width: 48px; height: 48px; border-radius: 14px; } .ph-ic svg { width: 30px; height: 30px; } .ph-txt p { font-size: 12.5px; } }
+@media (max-width: 640px) { .page-hero { flex-wrap: wrap; } .ph-extra { width: 100%; } .ph-extra .btn { width: 100%; } }

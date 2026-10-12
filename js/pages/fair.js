@@ -51,7 +51,7 @@
     const proofs = st.proofs || [];
     const hist = (st.fair && st.fair.history) || [];
     root.innerHTML = `
-      <h1 class="page-title">Честная игра</h1>
+      ${App.pageHead('Честная игра', 'Provably fair: любой результат можно пересчитать', 'shield', '#2fd27a')}
       <p class="fair-note">Каждый результат на сайте — кейс, апгрейд, контракт, раунд батла — вычисляется из трёх значений: <b>server seed</b>, <b>client seed</b> и <b>nonce</b>. Хэш server seed показан заранее, а сам seed раскрывается при смене. После этого любой результат можно пересчитать здесь или в любом HMAC-калькуляторе.</p>
       <section class="fair">
         <div class="panel">
@@ -107,7 +107,7 @@
             const open = App.fair.revealed(p.serverHash);
             return `<tr><td class="muted">${new Date(p.ts).toLocaleString('ru-RU')}</td><td>${KIND_RU[p.kind] || p.kind}</td><td>${esc(p.result || '')}</td><td class="muted">nonce ${p.nonce}</td><td>${open ? `<a href="#/fair/${p.id}">Проверить</a>` : '<span class="muted" title="Server seed ещё не раскрыт">seed скрыт</span>'}</td></tr>`;
           })
-          .join('')}</tbody></table>` : '<div class="empty">Здесь появятся ваши игры</div>'}</div>
+          .join('')}</tbody></table>` : App.emptyState('Здесь появятся ваши игры', 'hourglass')}</div>
       </section>
       <section class="panel">
         <div class="panel-head"><b>Раскрытые server seed</b></div>

@@ -67,6 +67,17 @@
     </a>`;
   };
 
+  // фирменная шапка раздела: эмблема в светящемся бейдже, заголовок и подзаголовок
+  App.pageHead = (title, sub, icon, color, extra = '') =>
+    `<section class="page-hero" style="--ph:${color}">
+      <i class="ph-ic"><svg viewBox="0 0 64 64">${App.art.icon(icon)}</svg></i>
+      <div class="ph-txt"><h1 class="page-title">${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>
+      ${extra ? `<div class="ph-extra">${extra}</div>` : ''}
+    </section>`;
+  // пустое состояние с иконкой
+  App.emptyState = (text, icon = 'ghost', link = '') =>
+    `<div class="empty"><svg class="empty-ic" viewBox="0 0 64 64">${App.art.icon(icon)}</svg><div>${text}</div>${link}</div>`;
+
   /* ---------------- эффекты: частицы и вспышки ---------------- */
   const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fx = (App.fx = { parts: [], running: false });

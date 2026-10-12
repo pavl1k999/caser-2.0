@@ -379,7 +379,8 @@ def main():
             t.pop("price", None)
             t["patterns"] = []
         elif not t.get("price") and not t.get("cats") and t.get("tier") in TIER_BAND:
-            t["band"] = TIER_BAND[t["tier"]]
+            # только нижняя граница: дешёвый мусор отсекаем, а топовые призы (Dragon Lore и т.п.) остаются
+            t["band"] = (TIER_BAND[t["tier"]][0], float("inf"))
         band = t.get("band")
 
         def ok(m):
@@ -437,7 +438,7 @@ def main():
          pick(is_w("Karambit"), 16) + pick(lambda m: m["rarity"] == "covert" and not_gold(m), 16), tag="hot")
     prem("butterfly", "Бабочка", "butterfly", ["#9333ea", "#2e0b52", "#f0abfc"], "lux",
          pick(is_w("Butterfly Knife"), 16) + pick(lambda m: m["rarity"] == "covert" and not_gold(m), 16))
-    prem("doppler", "Допплер", "gem", ["#db2777", "#4c0626", "#f9a8d4"], "neon",
+    prem("doppler", "Допплер", "diamond", ["#db2777", "#4c0626", "#f9a8d4"], "neon",
          pick(lambda m: "Doppler" in m["pattern"], 24) + pick(lambda m: m["rarity"] == "classified", 10))
     prem("fade", "Градиент", "sun", ["#f97316", "#5b1d02", "#fde047"], "graffiti",
          pick(lambda m: "Fade" in m["pattern"], 22) + pick(lambda m: m["rarity"] == "restricted", 12), rtp=RTP_STANDARD)

@@ -5,6 +5,8 @@
   App.route('/profile', (root) => {
     let tab = 'inv';
     let sort = 'new';
+    let q = '';
+    let rar = '';
     const sel = new Set();
 
     const draw = () => {
@@ -50,6 +52,8 @@
               <button data-t="log" class="${tab === 'log' ? 'on' : ''}">Операции</button>
             </div>
             ${tab === 'inv' ? `<div class="row">
+              <input type="search" id="pfQ" placeholder="Поиск" value="${App.esc(q)}" autocomplete="off">
+              <select id="pfRar"><option value="">Все редкости</option>${App.RARITY_ORDER.filter((r) => r !== 'contraband').map((r) => `<option value="${r}" ${r === rar ? 'selected' : ''}>${App.RARITY[r].name}</option>`).join('')}</select>
               <select id="pfSort"><option value="new">Новые</option><option value="exp">Дорогие</option><option value="cheap">Дешёвые</option></select>
               ${sel.size ? `<button class="btn btn-green btn-sm" id="pfSellSel">Продать выбранные (${sel.size})</button>` : ''}
               ${inv.length ? `<button class="btn btn-ghost btn-sm" id="pfSellAll">Продать всё за ${App.coin(invSum)}</button>` : ''}
@@ -91,18 +95,27 @@
     function body(inv) {
       const box = App.$('#pfBody');
       if (tab === 'inv') {
+        const all = inv.length;
+        inv = inv.filter((it) => {
+          const s = App.skin(it.sid);
+          return (!rar || s.rarity === rar) && (!q || (s.weapon + ' ' + s.sub).toLowerCase().includes(q));
+        });
+        if (all && !inv.length) {
+          box.innerHTML = App.emptyState('Ничего не найдено', 'eye');
+          return;
+        }
         if (sort === 'exp') inv.sort((a, b) => b.price - a.price);
         if (sort === 'cheap') inv.sort((a, b) => a.price - b.price);
         box.innerHTML = inv.length
           ? `<div class="igrid">${inv
               .map((it) => App.itemCard(it, { cls: 'pick ' + (sel.has(it.uid) ? 'sel' : ''), extra: `<button class="btn btn-sm btn-ghost sell-one" data-uid="${it.uid}">Продать</button>` }))
               .join('')}</div>`
-          : '<div class="empty">Инвентарь пуст. <a href="#/">Открыть кейс</a></div>';
+          : App.emptyState('Инвентарь пуст', 'ghost', '<a class="btn btn-accent btn-sm" href="#/">Открыть кейс</a>');
       } else if (tab === 'hist') {
         const all = App.state.items.slice().sort((a, b) => b.ts - a.ts).slice(0, 120);
         box.innerHTML = all.length
           ? `<div class="igrid">${all.map((it) => App.itemCard(it, { cls: it.state !== 'inv' ? 'sold' : '', extra: `<div class="ic-state s-${it.state}">${STATE_RU[it.state]}</div>` })).join('')}</div>`
-          : '<div class="empty">Здесь появятся все ваши предметы</div>';
+          : App.emptyState('Здесь появятся все ваши предметы', 'hourglass');
       } else {
         const log = App.state.log.slice().reverse();
         box.innerHTML = log.length
@@ -129,6 +142,10 @@
         tab = b.dataset.t;
         draw();
       };
+      const qEl = App.$('#pfQ');
+      if (qEl) qEl.oninput = () => { q = qEl.value.trim().toLowerCase(); body(App.inventory()); };
+      const rEl = App.$('#pfRar');
+      if (rEl) rEl.onchange = () => { rar = rEl.value; body(App.inventory()); };
       const sortEl = App.$('#pfSort');
       if (sortEl) sortEl.onchange = (e) => { sort = e.target.value; draw(); };
       const nick = App.$('#pfNick');
