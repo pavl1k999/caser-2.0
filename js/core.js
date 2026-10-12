@@ -76,6 +76,15 @@
     return i < 0 ? 4 : i;
   };
 
+  // картинки: из папки img/ (после scripts/download_images.py) или со Steam CDN
+  App.cdnOf = {};
+  App.localImg = (key, cdn) => {
+    if (!window.LOCAL_IMAGES) return cdn;
+    const local = 'img/' + key + '.png';
+    App.cdnOf[local] = cdn;
+    return local;
+  };
+
   const skinCache = new Map();
   App.skin = (id) => {
     let s = skinCache.get(id);
@@ -85,7 +94,7 @@
     const [weapon, pattern, rarity, img, cat, min, max, st, base, phase] = r;
     s = {
       id, weapon, pattern, rarity, cat, min, max, st: !!st, base, phase,
-      img: (img.startsWith('http') ? img : DB.img + img) + '/256fx256f',
+      img: App.localImg('skins/' + id, (img.startsWith('http') ? img : DB.img + img) + '/256fx256f'),
       title: (rarity === 'gold' ? '★ ' : '') + weapon,
       sub: (pattern === 'Vanilla' ? 'Классика' : pattern) + (phase ? ' · ' + phase : ''),
     };
@@ -118,7 +127,7 @@
     return {
       ...c,
       items,
-      cover: c.img ? DB.img + c.img + '/256fx256f' : App.skin(c.cover).img,
+      cover: c.img ? App.localImg('cases/' + c.id, DB.img + c.img + '/256fx256f') : App.skin(c.cover).img,
       isCrate: !!c.img,
     };
   });

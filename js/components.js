@@ -9,8 +9,13 @@
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60"><path fill="#ffffff22" d="M8 30h70l6-8h18l4 4-6 6h12v8H90l-8 12H66l4-12H40l-6 6H18l4-6H8z"/></svg>'
     );
   App.imgFallback = (img) => {
-    img.onerror = null;
-    img.src = FALLBACK;
+    // локальной картинки нет — пробуем Steam CDN, потом заглушку
+    const cdn = App.cdnOf[img.getAttribute('src')];
+    if (cdn) img.src = cdn;
+    else {
+      img.onerror = null;
+      img.src = FALLBACK;
+    }
   };
   const imgTag = (src, cls = '') =>
     `<img class="${cls}" src="${esc(src)}" alt="" loading="lazy" draggable="false" onerror="App.imgFallback(this)">`;
