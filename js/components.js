@@ -41,12 +41,115 @@
     </div>`;
   };
 
+  // обложка кейса: у копий кейсов CS2 — картинка Steam, у кейсов сайта — своя коробка в SVG
+  const artCache = new Map();
+  App.caseArt = (c) => {
+    if (c.isCrate) return imgTag(c.cover);
+    if (!artCache.has(c.id)) artCache.set(c.id, App.art.caseSVG({ id: c.id, label: c.name, ...c.theme }));
+    return artCache.get(c.id);
+  };
+  App.caseColor = (c) => (c.theme && c.theme.colors ? c.theme.colors[0] : '#8a91a8');
+
   App.caseCard = (c) => {
-    return `<a class="ccard ${c.isCrate ? 'is-crate' : 'is-custom'}" href="#/case/${c.id}" style="--cc:${c.color || '#ffb400'}">
-      <div class="cc-img">${c.isCrate ? '' : '<div class="cc-glow"></div><div class="cc-box"></div>'}${imgTag(c.cover)}</div>
+    const tags = [];
+    if (c.free) tags.push(App.levelInfo().lvl >= c.level ? '<span class="cc-tag t-lvl">Бесплатно</span>' : `<span class="cc-tag">🔒 ${c.level} ур.</span>`);
+    if (c.tag === 'hot') tags.push('<span class="cc-tag t-hot">Хит</span>');
+    if (c.tag === 'new') tags.push('<span class="cc-tag t-new">Новый</span>');
+    if (c.mode === 'lottery') tags.push('<span class="cc-tag">Лотерея</span>');
+    if (c.mode === 'joker') tags.push('<span class="cc-tag">Равные шансы</span>');
+    const top = c.rows[c.rows.length - 1].price;
+    return `<a class="ccard ${c.isCrate ? 'is-crate' : 'is-custom'}" href="#/case/${c.id}" style="--cc:${App.caseColor(c)}">
+      <div class="cc-tags">${tags.join('')}</div>
+      <div class="cc-art">${App.caseArt(c)}</div>
       <div class="cc-name">${esc(c.name)}</div>
-      <div class="cc-price">${c.free ? (App.levelInfo().lvl >= c.level ? 'Бесплатно' : `🔒 ${c.level} ур.`) : App.coin(c.price)}</div>
+      <div class="cc-meta">${c.items.length} предметов · до ${App.fmtShort(top)}</div>
+      <div class="cc-price">${c.free ? (App.levelInfo().lvl >= c.level ? 'Открыть' : `с ${c.level} уровня`) : App.coin(c.price)}</div>
     </a>`;
+  };
+
+  /* ---------------- эффекты: частицы и вспышки ---------------- */
+  const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fx = (App.fx = { parts: [], running: false });
+  function fxLoop() {
+    const cv = document.getElementById('fx');
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== innerWidth * dpr || cv.height !== innerHeight * dpr) {
+      cv.width = innerWidth * dpr;
+      cv.height = innerHeight * dpr;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    fx.parts = fx.parts.filter((p) => p.life > 0);
+    for (const p of fx.parts) {
+      p.vy += p.g;
+      p.vx *= 0.985;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rot += p.vr;
+      p.life -= 1;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, p.life / 30);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      if (p.shape === 'spark') {
+        ctx.beginPath();
+        ctx.moveTo(0, -p.s * 2);
+        ctx.lineTo(p.s * 0.5, 0);
+        ctx.lineTo(0, p.s * 2);
+        ctx.lineTo(-p.s * 0.5, 0);
+        ctx.fill();
+      } else ctx.fillRect(-p.s, -p.s * 0.5, p.s * 2, p.s);
+      ctx.restore();
+    }
+    if (fx.parts.length) requestAnimationFrame(fxLoop);
+    else {
+      fx.running = false;
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+    }
+  }
+  // взрыв частиц из точки (x, y) экрана
+  fx.burst = (x, y, colors, count = 60, power = 9) => {
+    if (reduced) return;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2, v = power * (0.35 + Math.random() * 0.75);
+      fx.parts.push({
+        x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - power * 0.35, g: 0.22, vr: (Math.random() - 0.5) * 0.4, rot: Math.random() * 6,
+        s: 2.5 + Math.random() * 3.5, life: 60 + Math.random() * 50, color: colors[i % colors.length], shape: i % 3 ? 'rect' : 'spark',
+      });
+    }
+    if (!fx.running) {
+      fx.running = true;
+      requestAnimationFrame(fxLoop);
+    }
+  };
+  fx.burstAt = (el, colors, count, power) => {
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    fx.burst(r.left + r.width / 2, r.top + r.height / 2, colors, count, power);
+  };
+  fx.flash = (color) => {
+    if (reduced) return;
+    const f = document.createElement('div');
+    f.className = 'flash';
+    f.style.setProperty('--fc', color);
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 950);
+  };
+  // насколько «громко» праздновать дроп: по редкости и по тому, во сколько раз он дороже цены
+  const TIER = { consumer: 0, industrial: 0, milspec: 0, restricted: 1, classified: 2, covert: 3, gold: 4, contraband: 4 };
+  fx.celebrate = (el, it, cost) => {
+    const s = App.skin(it.sid);
+    let tier = TIER[s.rarity] || 0;
+    if (cost && it.price >= cost * 10) tier = Math.max(tier, 3);
+    else if (cost && it.price >= cost * 3) tier = Math.max(tier, 2);
+    const col = App.RARITY[s.rarity].color;
+    if (tier >= 1) fx.burstAt(el, [col, '#ffffff', App.art.lighten(col, 0.4)], 30 + tier * 25, 6 + tier * 2);
+    if (tier >= 3) fx.flash(col);
+    if (tier >= 4) setTimeout(() => fx.burstAt(el, ['#ffd700', '#fff3b0', '#ff9f1c'], 140, 14), 180);
+    return tier;
   };
 
   /* ---------------- рулетка ---------------- */
@@ -100,10 +203,19 @@
       return new Promise((resolve) => {
         const t0 = performance.now();
         let lastIdx = -1;
+        let lastPos = from, blurLvl = 0;
         function frame(now) {
           const t = Math.min(1, (now - t0) / dur);
           const pos = from + (to - from) * ease(t);
           setPos(-pos);
+          // размытие в движении: три ступени, чтобы не перерисовывать фильтр каждый кадр
+          const v = Math.abs(pos - lastPos);
+          lastPos = pos;
+          const lvl = v > 40 ? 2 : v > 18 ? 1 : 0;
+          if (lvl !== blurLvl) {
+            blurLvl = lvl;
+            track.style.filter = lvl ? `blur(${lvl * 1.2}px)` : '';
+          }
           const idx = Math.floor((pos + view / 2) / size);
           if (idx !== lastIdx) {
             lastIdx = idx;
@@ -113,6 +225,7 @@
           else {
             // плавно доводим ровно к центру выигрышной карточки
             const center = WIN_AT * size + (size - gap) / 2 - view / 2;
+            track.style.filter = '';
             track.style.transition = 'transform .5s ease';
             setPos(-center);
             cards[WIN_AT].classList.add('roul-win');

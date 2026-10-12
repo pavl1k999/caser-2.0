@@ -63,16 +63,61 @@
     let st = App.readState(accKey);
     const isNew = !st;
     if (isNew) {
-      // первый вход: прогресс гостя переезжает в аккаунт, гость начинает заново
-      st = App.readState(guestKey) || App.defaults();
+      // новый аккаунт: стартовый баланс; прогресс, накопленный гостем в прошлых версиях сайта, переносим
+      const legacy = App.readState(guestKey);
+      st = legacy && (legacy.stats.opened || legacy.items.length) ? legacy : App.defaults();
       App.writeState(guestKey, App.defaults());
+      st.nick = session.name ? session.name.slice(0, 20) : `Игрок ${session.sid.slice(-4)}`;
+    } else if (session.name && session.verified) {
+      st.nick = session.name.slice(0, 20);
     }
-    if (session.name && (isNew || session.verified)) st.nick = session.name.slice(0, 20);
+    st.steam = { sid: session.sid, since: st.steam ? st.steam.since : Date.now() };
     App.setSession(session);
     App.loadState(st);
-    App.toast(`Вы вошли как ${App.esc(st.nick)}`, 'success');
+    App.closeLogin && App.closeLogin();
+    App.toast(isNew ? `Аккаунт создан: ${App.esc(st.nick)}. На счету ${App.fmt(st.balance)} монет` : `С возвращением, ${App.esc(st.nick)}!`, 'success');
     if (session.token) pull();
+    // без сервера Steam не отдаёт ник — предлагаем выбрать его один раз
+    if (isNew && !session.name) setTimeout(askNick, 400);
   }
+
+  function askNick() {
+    const m = App.modal(`<div class="nick-modal"><h2>Как вас называть?</h2>
+      <p class="muted">Ник увидят соперники в батлах и лента дропов. Его можно поменять в профиле.</p>
+      <form id="nickForm" class="row"><input id="nickIn" maxlength="20" value="${App.esc(App.state.nick)}" autocomplete="off"><button class="btn btn-accent">Сохранить</button></form></div>`, { cls: 'modal-sm' });
+    const inp = App.$('#nickIn');
+    inp.focus();
+    inp.select();
+    App.$('#nickForm').onsubmit = (e) => {
+      e.preventDefault();
+      const v = inp.value.trim().slice(0, 20);
+      if (v) {
+        App.state.nick = v;
+        App.save();
+      }
+      m.close();
+    };
+  }
+
+  // окно входа: показывается при любой попытке играть без аккаунта
+  let loginModal = null;
+  App.closeLogin = () => loginModal && loginModal.close();
+  App.on('need-login', () => {
+    if (loginModal) return;
+    loginModal = App.modal(`<div class="login-modal">
+        <div class="login-art">${App.art ? App.art.hero() : ''}</div>
+        <h2>Войдите, чтобы играть</h2>
+        <p>Аккаунт создаётся автоматически при первом входе через Steam. Сразу на счету <b>${App.fmt(App.config.startBalance)} монет</b>, дальше — бонусы каждый день.</p>
+        <ul class="login-list">
+          <li>${App.config.authApi ? 'Ник и аватар подтягиваются из Steam' : 'Аккаунт привязан к вашему SteamID'}</li>
+          <li>Свой инвентарь, уровень и статистика</li>
+          <li>Только виртуальные монеты — никаких пополнений и выводов</li>
+        </ul>
+        <button class="steam-btn steam-btn-lg" id="loginGo"><i class="steam-ic"></i><span>Войти через Steam</span></button>
+        <p class="muted small">Вход проходит на официальном steamcommunity.com — проверьте адрес в строке браузера. Сайт получает только ваш SteamID и никогда не спрашивает пароль или код Steam Guard.</p>
+      </div>`, { cls: 'modal-sm', onClose: () => (loginModal = null) });
+    App.$('#loginGo').onclick = () => auth.login();
+  });
 
   // Возврат со Steam без сервера: SteamID берём из ответа (без проверки подписи)
   function handleDirectReturn() {

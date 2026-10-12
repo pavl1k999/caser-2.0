@@ -8,6 +8,16 @@
     const sel = new Set();
 
     const draw = () => {
+      if (!App.loggedIn()) {
+        root.innerHTML = `<section class="guest-wall panel">
+          <div class="guest-art">${App.art ? App.art.hero() : ''}</div>
+          <div><h1 class="page-title">Профиль появится после входа</h1>
+          <p class="muted">Войдите через Steam — аккаунт создастся автоматически, а на счёт придут ${App.fmt(App.config.startBalance)} монет.</p>
+          <button class="steam-btn steam-btn-lg" id="pfSteam"><i class="steam-ic"></i><span>Войти через Steam</span></button></div>
+        </section>`;
+        App.$('#pfSteam').onclick = () => App.auth.login();
+        return;
+      }
       const st = App.state;
       const lv = App.levelInfo();
       const inv = App.inventory();

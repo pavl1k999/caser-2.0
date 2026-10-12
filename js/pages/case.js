@@ -7,22 +7,27 @@
     if (!c) return App.go('/');
     let count = 1;
     let fast = false;
-    try { fast = localStorage.getItem('fastOpen') === '1'; } catch (e) { /* ignore */ }
+    try {
+      fast = localStorage.getItem('fastOpen') === '1';
+      count = Math.min(5, Math.max(1, +localStorage.getItem('openCount') || 1));
+    } catch (e) { /* ignore */ }
+    if (c.free) count = 1;
+    const series = (DB.series || []).find((x) => x.id === c.series);
     let busy = false;
     let rouls = [];
 
     const [lo, hi] = App.casePriceRange(c);
     root.innerHTML = `
       <a class="back" href="#/">← Все кейсы</a>
-      <section class="case-head" style="--cc:${c.color || '#ffb400'}">
-        <div class="case-cover ${c.isCrate ? 'is-crate' : 'is-custom'}">
-          ${c.isCrate ? '' : '<div class="cc-glow"></div><div class="cc-box"></div>'}${App.imgTag(c.cover)}
-        </div>
+      <section class="case-head" style="--cc:${App.caseColor(c)}">
+        <div class="case-cover" id="caseCover">${App.caseArt(c)}</div>
         <div class="case-info">
+          <div class="case-series">${series ? `Серия «${App.esc(series.name)}»` : c.free ? 'Бесплатный кейс' : c.isCrate ? 'Кейс CS2' : 'Кейс CASESIM'}</div>
           <h1>${App.esc(c.name)}</h1>
           <div class="case-meta">
-            <span>${c.items.length} предметов</span>
+            <span><b>${c.items.length}</b> предметов</span>
             <span>от ${App.coin(lo)} до ${App.coin(hi)}</span>
+            ${c.free ? '' : `<span>Шанс окупа <b>${App.formatChance(c.payback)}</b></span>`}
           </div>
         </div>
       </section>
@@ -30,11 +35,12 @@
         <div id="rouls" class="rouls"></div>
         <div class="open-ctrl" id="openCtrl">
           <div class="seg seg-count" id="cnt">
-            ${[1, 2, 3, 4, 5].map((n) => `<button data-n="${n}" class="${n === 1 ? 'on' : ''}">x${n}</button>`).join('')}
+            ${[1, 2, 3, 4, 5].map((n) => `<button data-n="${n}" class="${n === count ? 'on' : ''}">x${n}</button>`).join('')}
           </div>
           <button class="btn btn-accent btn-lg" id="openBtn"></button>
           <label class="switch"><input type="checkbox" id="fast" ${fast ? 'checked' : ''}><i></i>Быстрое открытие</label>
         </div>
+        <div class="open-hint">Пробел — открыть ещё раз</div>
         <div class="fair-line" id="fairLine"></div>
         <div id="result" class="result hidden"></div>
       </section>
@@ -150,6 +156,7 @@
       const b = e.target.closest('button');
       if (!b || busy) return;
       count = +b.dataset.n;
+      try { localStorage.setItem('openCount', String(count)); } catch (err) { /* ignore */ }
       App.$$('#cnt button').forEach((x) => x.classList.toggle('on', x === b));
       App.$('#result').classList.add('hidden');
       buildRouls();
@@ -162,6 +169,7 @@
 
     btn.onclick = async () => {
       if (busy) return;
+      if (!App.requireLogin()) return;
       if (c.free) {
         const fs = App.freeStatus(c);
         if (!fs.ok) return App.toast(`Этот кейс откроется ${fs.why}`, 'error');
@@ -178,18 +186,43 @@
       root.classList.add('busy');
       App.$('#result').classList.add('hidden');
       App.$('#openCtrl').classList.add('locked');
+      // результат фиксируется до анимации: F5 или уход со страницы ничего не меняют
       const wins = rouls.map(() => App.rollCase(c));
       App.state.stats.opened += count;
       App.addItems(wins);
-      await Promise.all(rouls.map((r, i) => r.spin(wins[i], { fast, duration: fast ? 1400 : 6000 + i * 120 })));
+      if (!fast) {
+        // коробка трясётся и раскрывается вспышкой, потом крутится рулетка
+        const cover = App.$('#caseCover');
+        cover.classList.remove('shake', 'burst');
+        void cover.offsetWidth;
+        cover.classList.add('shake');
+        App.sound.shake();
+        await App.sleep(520);
+        cover.classList.add('burst');
+        App.$('#rouls').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await App.sleep(160);
+      }
+      await Promise.all(rouls.map((r, i) =>
+        r.spin(wins[i], { fast, duration: fast ? 1400 : 6000 + i * 120 }).then(() => App.fx.celebrate(r.el.querySelector('.roul-win'), wins[i], c.price || c.value))
+      ));
       App.feedMine(wins, c);
       const best = Math.max(...wins.map((w) => w.price));
       App.sound.win(best >= (c.price || c.value) * 3);
       busy = false;
+      if (!root.isConnected) return;
       root.classList.remove('busy');
+      App.$('#caseCover').classList.remove('shake', 'burst');
       App.$('#openCtrl').classList.remove('locked');
       showResult(wins);
     };
+    // пробел — открыть ещё раз
+    const onKey = (e) => {
+      if (e.code !== 'Space' || e.repeat || /INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement.tagName) || document.querySelector('.modal-wrap')) return;
+      e.preventDefault();
+      btn.click();
+    };
+    document.addEventListener('keydown', onKey);
+    App.onLeave(() => document.removeEventListener('keydown', onKey));
 
     function showResult(wins) {
       const box = App.$('#result');
@@ -198,12 +231,13 @@
         const left = live();
         const sum = left.reduce((a, w) => a + w.price, 0);
         box.innerHTML = `
-          <div class="result-title">Ваш дроп</div>
+          <div class="result-title">${wins.length > 1 ? 'Ваш дроп' : 'Выпало!'}</div>
           <div class="result-items">${wins
             .map((w) => {
               const sold = App.findItem(w.uid)?.state !== 'inv';
+              const rare = ['covert', 'gold', 'contraband', 'classified'].includes(App.skin(w.sid).rarity) || w.price >= (c.price || c.value) * 3;
               return App.itemCard(w, {
-                cls: 'big ' + (sold ? 'sold' : ''),
+                cls: 'big ' + (sold ? 'sold ' : '') + (rare ? 'rare-glow' : ''),
                 extra:
                   (w.proof ? `<a class="ic-proof" href="#/fair/${w.uid}" title="Проверить результат">билет ${w.proof.ticket.toLocaleString('ru-RU')} · nonce ${w.proof.nonce}</a>` : '') +
                   (sold

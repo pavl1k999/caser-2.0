@@ -91,6 +91,7 @@
     };
 
     App.$('#ctBtn').onclick = async () => {
+      if (!App.requireLogin()) return;
       if (busy || sel.size < MIN) return;
       busy = true;
       root.classList.add('busy');

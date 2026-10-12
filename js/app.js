@@ -3,11 +3,45 @@
   'use strict';
   const { $, $$ } = App;
 
+  // баланс в шапке плавно «докручивается» до нового значения
+  let shownBal = null, balAnim = 0, lastLvl = null;
+  function animateBalance(to) {
+    if (shownBal == null || Math.abs(to - shownBal) < 0.005) {
+      shownBal = to;
+      $('#balance').innerHTML = App.coin(to);
+      return;
+    }
+    const from = shownBal, t0 = performance.now(), dur = 700, id = ++balAnim;
+    const bal = $('.bal');
+    bal.classList.remove('up', 'down');
+    void bal.offsetWidth;
+    bal.classList.add(to > from ? 'up' : 'down');
+    const step = (now) => {
+      if (id !== balAnim) return;
+      const k = Math.min(1, (now - t0) / dur);
+      shownBal = from + (to - from) * (1 - Math.pow(1 - k, 3));
+      $('#balance').innerHTML = App.coin(shownBal);
+      if (k < 1) requestAnimationFrame(step);
+      else shownBal = to;
+    };
+    requestAnimationFrame(step);
+  }
   function header() {
     const st = App.state;
-    $('#balance').innerHTML = App.coin(st.balance);
+    const on = App.loggedIn();
+    document.body.classList.toggle('guest', !on);
+    animateBalance(st.balance);
+    const lvl = App.levelInfo().lvl;
+    if (on && lastLvl != null && lvl > lastLvl) {
+      App.toast(`🎉 Новый уровень: ${lvl}! Множитель колеса теперь ×${App.fmt(App.wheelMult(lvl))}`, 'success');
+      App.fx.burst(innerWidth - 120, 40, ['#ffd23f', '#ff6a00', '#ffffff'], 70, 8);
+      App.sound.win(true);
+    }
+    lastLvl = on ? lvl : null;
+    $('.bal').hidden = !on;
+    $('.user').hidden = !on;
     $('#userAva').innerHTML = App.myAvatar();
-    $('#steamBtn').hidden = !!App.session;
+    $('#steamBtn').hidden = on;
     $('#userNick').textContent = st.nick;
     $('#userLvl').textContent = App.levelInfo().lvl + ' ур.';
     $('#soundBtn').classList.toggle('off', !st.sound);
@@ -28,7 +62,7 @@
     return `<a class="drop ${e.mine ? 'mine' : ''}" style="--rc:${color}" href="${e.caseObj ? '#/case/' + e.caseObj.id : '#/'}">
       ${App.imgTag(s.img)}
       <div class="drop-hover">
-        ${e.caseObj ? App.imgTag(e.caseObj.cover, 'drop-case') : ''}
+        ${e.caseObj ? `<span class="drop-case">${App.caseArt(e.caseObj)}</span>` : ''}
         <span>${App.esc(e.user.nick)}</span>
       </div>
       <div class="drop-name"><span>${App.esc(s.title)}</span><b>${App.esc(s.sub)}</b></div>
@@ -86,7 +120,7 @@
     for (let i = 0; i < 18; i++) App.feed.push(App.botDrop());
     // в стартовой ленте пара «топовых» дропов
     for (let i = 0; i < 3; i++) {
-      const c = App.pickOne(App.cases.filter((x) => x.group === 'elite'));
+      const c = App.pickOne(App.cases.filter((x) => x.series === 'premium'));
       App.feed.splice(App.randInt(0, 12), 0, { it: App.rollCase(c, null, App.fair.random()), user: App.makeBot(), caseObj: c });
     }
     drawFeed();

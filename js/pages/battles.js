@@ -104,7 +104,7 @@
           : '<span class="badge">Идёт игра</span>';
       return `<div class="brow ${mine ? 'mine' : ''}">
         <div class="brow-mode"><b>${FORMATS[b.format].label}</b>${gameBadge(b)}</div>
-        <div class="brow-cases">${b.cases.slice(0, 6).map((id) => `<span class="bc-thumb" title="${App.esc(App.caseById(id).name)}">${App.imgTag(App.caseById(id).cover)}</span>`).join('')}${b.cases.length > 6 ? `<em>+${b.cases.length - 6}</em>` : ''}<span class="muted small">${b.cases.length} раунд.</span></div>
+        <div class="brow-cases">${b.cases.slice(0, 6).map((id) => `<span class="bc-thumb" title="${App.esc(App.caseById(id).name)}">${App.caseArt(App.caseById(id))}</span>`).join('')}${b.cases.length > 6 ? `<em>+${b.cases.length - 6}</em>` : ''}<span class="muted small">${b.cases.length} раунд.</span></div>
         <div class="brow-players">${b.slots.map((s) => playerAva(s)).join('')}</div>
         <div class="brow-price">${App.coin(b.price)}</div>
         <div class="brow-act">${status}</div>
@@ -146,13 +146,13 @@
 
     const draw = () => {
       App.$('#bcPicked').innerHTML = picked.length
-        ? picked.map((id, i) => `<span class="bc-chip" data-i="${i}">${App.imgTag(App.caseById(id).cover)}<em>✕</em></span>`).join('') + `<span class="muted small">${picked.length}/${MAX_ROUNDS}</span>`
+        ? picked.map((id, i) => `<span class="bc-chip" data-i="${i}">${App.caseArt(App.caseById(id))}<em>✕</em></span>`).join('') + `<span class="muted small">${picked.length}/${MAX_ROUNDS}</span>`
         : `<span class="muted">Выберите кейсы (до ${MAX_ROUNDS} раундов)</span>`;
       const list = playable().filter((c) => !q || c.name.toLowerCase().includes(q));
       App.$('#bcGrid').innerHTML = list
         .map((c) => {
           const n = picked.filter((x) => x === c.id).length;
-          return `<button class="bc-case" data-id="${c.id}">${App.imgTag(c.cover)}<span>${App.esc(c.name)}</span>${App.coin(c.price)}${n ? `<em class="bc-n">${n}</em>` : ''}</button>`;
+          return `<button class="bc-case" data-id="${c.id}" style="--cc:${App.caseColor(c)}">${App.caseArt(c)}<span>${App.esc(c.name)}</span>${App.coin(c.price)}${n ? `<em class="bc-n">${n}</em>` : ''}</button>`;
         })
         .join('');
       const total = picked.reduce((a, id) => a + App.caseById(id).price, 0);
@@ -238,8 +238,6 @@
       } else winners = cands[0];
     }
     b.winners = winners;
-    b.state = 'done';
-    b.ended = Date.now();
     b.pot = pot;
     const my = b.slots.findIndex((s) => s && s.me);
     App.state.stats.battles++;
@@ -275,7 +273,7 @@
       <div class="bt-head">
         <div><h1 class="page-title">${fmt.label} ${gameBadge(b)}</h1>
         <div class="muted">Вход: ${App.coin(b.price)} · ${GAMES[b.game].hint}</div></div>
-        <div class="bt-rounds" id="btRounds">${b.cases.map((cid, i) => `<span class="bt-r" data-i="${i}">${App.imgTag(App.caseById(cid).cover)}</span>`).join('')}</div>
+        <div class="bt-rounds" id="btRounds">${b.cases.map((cid, i) => `<span class="bt-r" data-i="${i}">${App.caseArt(App.caseById(cid))}</span>`).join('')}</div>
         <div class="bt-status" id="btStatus"></div>
       </div>
       <div class="bt-cols n${b.slots.length}" id="btCols"></div>`;
@@ -288,21 +286,24 @@
       return col;
     });
     const status = (html) => (App.$('#btStatus').innerHTML = html);
-    const totals = () => b.slots.map((_, i) => (b.results ? b.results[i].reduce((a, it) => a + it.price, 0) : 0));
+    // показываем только уже открытые раунды
+    const visible = (i) => (b.results ? b.results[i].slice(0, b.state === 'done' ? b.results[i].length : b.shown || 0) : []);
+    const totals = () => b.slots.map((_, i) => visible(i).reduce((a, it) => a + it.price, 0));
     function drawPlayers() {
       const t = totals();
       b.slots.forEach((s, i) => {
         cols[i].querySelector('.bt-player').innerHTML = s
           ? `${playerAva(s)}<div><b>${App.esc(s.nick)}${s.me ? ' (вы)' : ''}${s.bot ? ' <span class="badge badge-bot">бот</span>' : ''}</b>${App.coin(t[i])}</div>`
           : '<span class="ava ava-empty">?</span><div><b class="muted">Ожидание…</b></div>';
-        cols[i].classList.toggle('winner', !!(b.winners && b.winners.includes(i)));
-        cols[i].classList.toggle('loser', !!(b.winners && !b.winners.includes(i)));
+        const over = b.state === 'done' && b.winners;
+        cols[i].classList.toggle('winner', !!(over && b.winners.includes(i)));
+        cols[i].classList.toggle('loser', !!(over && !b.winners.includes(i)));
       });
     }
     function drawItems() {
       if (!b.results) return;
-      b.results.forEach((list, i) => {
-        cols[i].querySelector('.bt-items').innerHTML = list.map((it) => App.itemCard(it, { cls: 'mini' })).join('');
+      b.results.forEach((_, i) => {
+        cols[i].querySelector('.bt-items').innerHTML = visible(i).map((it) => App.itemCard(it, { cls: 'mini' })).join('');
       });
     }
     drawPlayers();
@@ -333,7 +334,15 @@
         if (alive) drawPlayers();
       }
       b.state = 'running';
-      b.results = b.slots.map(() => []);
+      // Все броски делаются в момент старта и сразу засчитываются: анимация только показывает
+      // готовый результат, поэтому уход со страницы или F5 посреди батла ничего не меняет.
+      const plan = b.cases.map((cid) => {
+        const c = App.caseById(cid);
+        return b.slots.map(() => App.rollCase(c, 'Батл', App.fair.begin('battle')));
+      });
+      b.results = b.slots.map((_, i) => plan.map((round) => round[i]));
+      b.shown = 0;
+      finish(b);
       for (let n = 3; n > 0; n--) {
         if (alive) status(`<span class="bt-count">${n}</span>`);
         App.sound.click();
@@ -341,8 +350,7 @@
       }
       for (let r = 0; r < b.cases.length; r++) {
         const c = App.caseById(b.cases[r]);
-        // каждое место в каждом раунде — отдельный provably fair nonce (боты тоже)
-        const drops = b.slots.map(() => App.rollCase(c, 'Батл', App.fair.begin('battle')));
+        const drops = plan[r];
         if (alive) {
           status(`Раунд ${r + 1} / ${b.cases.length}${b.game === 'terminal' && r === b.cases.length - 1 ? ' · решающий' : ''}`);
           App.$$('#btRounds .bt-r').forEach((x, i) => {
@@ -361,14 +369,15 @@
         } else {
           await App.sleep(1500);
         }
-        drops.forEach((d, i) => b.results[i].push(d));
+        b.shown = r + 1;
         if (alive) {
           drawItems();
           drawPlayers();
           await App.sleep(500);
         }
       }
-      finish(b);
+      b.state = 'done';
+      b.ended = Date.now();
       if (alive) showEnd(true);
     }
 

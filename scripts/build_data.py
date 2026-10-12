@@ -143,6 +143,28 @@ def fixed_wear(sid, wlo, whi):
     return pref[int(hashlib.md5((sid + "w").encode()).hexdigest()[:6], 16) % len(pref)]
 
 
+# Серии авторских кейсов (порядок = порядок на главной)
+SERIES = [
+    {"id": "elements", "name": "Стихии", "desc": "Огонь, лёд, яд, гроза и океан", "emblem": "flame", "color": "#ff6a00"},
+    {"id": "myths", "name": "Мифы", "desc": "Драконы, фениксы и морские чудовища", "emblem": "dragon", "color": "#c084fc"},
+    {"id": "space", "name": "Космос", "desc": "Луна, галактика и ракеты", "emblem": "rocket", "color": "#60a5fa"},
+    {"id": "street", "name": "Улицы", "desc": "Граффити, маски и хищники", "emblem": "spray", "color": "#ff3d81"},
+    {"id": "neon", "name": "Неон", "desc": "Кибер, аркада и неоновый свет", "emblem": "bolt", "color": "#22d3ee"},
+    {"id": "status", "name": "Статус", "desc": "От бомжа до олигарха — кейсы по бюджету", "emblem": "money", "color": "#ffd23f"},
+    {"id": "weapons", "name": "Оружие", "desc": "АК, AWP, M4, пистолеты, ножи и перчатки", "emblem": "crosshair", "color": "#ef4444"},
+    {"id": "premium", "name": "Премиум", "desc": "Керамбиты, бабочки, допплеры", "emblem": "crown", "color": "#ffd700"},
+    {"id": "special", "name": "Особые", "desc": "Лотерея, честный 50/50 и равные шансы", "emblem": "dice", "color": "#2fd27a"},
+]
+SERIES_ID = {s["name"]: s["id"] for s in SERIES}
+SERIES_ID.update({s["id"]: s["id"] for s in SERIES})
+
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from themes import THEMES, match as theme_match, match_gold as theme_match_gold  # noqa: E402
+except ImportError:
+    THEMES = []
+
+
 def main():
     src = sys.argv[1] if len(sys.argv) > 1 else None
     skins_raw = load("skins.json", src)
@@ -282,7 +304,7 @@ def main():
     def pick(pred, limit=None, spread=True):
         pool = sorted((i for i in skins if pred(meta[i])), key=lambda i: meta[i]["ev"])
         if limit and len(pool) > limit:
-            if spread:
+            if spread and limit > 1:
                 step = (len(pool) - 1) / (limit - 1)
                 pool = [pool[round(k * step)] for k in range(limit)]
             else:
@@ -297,14 +319,22 @@ def main():
         cand = [v for v in variants if cover_pred(meta[v[0]])] or variants
         return max(cand, key=vprice)[0]
 
-    def custom(cid, name, color, cover_pred, item_ids, power=POWER, rtp=RTP_STANDARD, group="popular"):
+    def with_theme(base, theme, series, tag):
+        base["theme"] = {k: theme[k] for k in ("colors", "style", "emblem") if k in theme}
+        if series:
+            base["series"] = series
+        if tag:
+            base["tag"] = tag
+        return base
+
+    def custom(cid, name, item_ids, theme, series=None, power=POWER, rtp=RTP_STANDARD, tag=None):
         variants = fixed(item_ids)
         price = nice_price(power_ev(variants, power) / rtp)
         tickets, k = solve_power(variants, price, rtp)
-        add_case({"id": cid, "name": name, "cover": cover_of(variants, cover_pred), "color": color,
-                  "group": group, "price": price}, variants, tickets, k)
+        add_case(with_theme({"id": cid, "name": name, "cover": cover_of(variants, lambda m: True),
+                             "group": "custom", "price": price}, theme, series, tag), variants, tickets, k)
 
-    def two_groups(cid, name, color, cover_pred, low_ids, high_ids, rtp, group, mode, high_share=None):
+    def two_groups(cid, name, theme, low_ids, high_ids, rtp, mode, high_share=None, tag=None):
         """Лотерея / 50 на 50: доля дорогой группы решается под точный RTP, внутри групп шанс ∝ 1/цена."""
         lo_v, hi_v = fixed(low_ids), fixed(high_ids)
 
@@ -321,16 +351,59 @@ def main():
         q = (rtp * price - J) / (K - J)
         q = min(max(q, 0.0005), 0.95)
         tickets = to_tickets([(1 - q) * x for x in lw] + [q * x for x in hw])
-        add_case({"id": cid, "name": name, "cover": cover_of(hi_v, cover_pred), "color": color,
-                  "group": group, "price": price}, lo_v + hi_v, tickets, None, mode)
+        add_case(with_theme({"id": cid, "name": name, "cover": cover_of(hi_v, lambda m: True),
+                             "group": "custom", "price": price}, theme, "special", tag), lo_v + hi_v, tickets, None, mode)
 
-    def joker(cid, name, color, cover_pred, item_ids, rtp=RTP_STANDARD, group="popular"):
+    def joker(cid, name, theme, item_ids, rtp=RTP_STANDARD, tag=None):
         """Джокер (как у Key-Drop): у всех предметов одинаковый шанс, цена = средний дроп / RTP."""
         variants = fixed(item_ids)
         ps = [vprice(v) for v in variants]
         price = nice_price(sum(ps) / len(ps) / rtp)
-        add_case({"id": cid, "name": name, "cover": cover_of(variants, cover_pred), "color": color,
-                  "group": group, "price": price}, variants, to_tickets([1] * len(variants)), None, "joker")
+        add_case(with_theme({"id": cid, "name": name, "cover": cover_of(variants, lambda m: True),
+                             "group": "custom", "price": price}, theme, "special", tag),
+                 variants, to_tickets([1] * len(variants)), None, "joker")
+
+    # ценовые полосы (по ожидаемой цене скина), чтобы кейсы одной серии стоили по-разному
+    TIER_BAND = {"cheap": (0.2, 250), "mid": (1.5, 1200), "high": (8, 4000), "elite": (40, 20000)}
+    # лестница «Статус»: свой диапазон цен и число ножей на каждой ступени
+    STATUS = {
+        "Бомж": ((0.2, 25), 0), "Студент": ((0.8, 120), 0), "Работяга": ((2.5, 450), 1),
+        "Бизнесмен": ((6, 1400), 1), "Мажор": ((70, 6000), 3), "Олигарх": ((250, 30000), 6),
+    }
+
+    def themed(t):
+        """Кейс серии из scripts/themes.py: скины по ключевым словам паттерна, сверху — ножи/перчатки-джекпот."""
+        t = dict(t)
+        if t["name"] in STATUS:
+            t["band"], t["gold"] = STATUS[t["name"]]
+            t.pop("price", None)
+            t["patterns"] = []
+        elif not t.get("price") and not t.get("cats") and t.get("tier") in TIER_BAND:
+            t["band"] = TIER_BAND[t["tier"]]
+        band = t.get("band")
+
+        def ok(m):
+            return theme_match(t, m) and (not band or band[0] <= m["ev"] <= band[1])
+        size = t.get("size", 36)
+        ids = pick(ok, size)
+        if band and len(ids) < min(size, 32) and t["name"] not in STATUS:
+            band = None  # узкая тема: ценовая полоса оставила бы слишком мало скинов
+            ids = pick(ok, size)
+        if len(ids) < size and t.get("fill"):
+            # добор обычными скинами тех же редкостей и ценового диапазона
+            rs = {meta[i]["rarity"] for i in ids} or {"milspec", "restricted", "classified"}
+            lo = min((meta[i]["ev"] for i in ids), default=0)
+            hi = max((meta[i]["ev"] for i in ids), default=1e9)
+            extra = pick(lambda m: m["rarity"] in rs and lo <= m["ev"] <= hi, size * 3)
+            ids = list(dict.fromkeys(ids + extra))[:size]
+        if t.get("gold"):
+            gold = pick(lambda m: theme_match_gold(t, m) and m["ev"] < 60000, t["gold"])
+            if len(gold) < t["gold"]:
+                gold += pick(lambda m: m["rarity"] == "gold" and m["pattern"] == "Vanilla", t["gold"] - len(gold))
+            ids = list(dict.fromkeys(ids + gold))
+        only_gold = "gold" in (t.get("rarities") or [])
+        rtp = RTP_KNIFE if only_gold or t.get("tier") == "elite" else RTP_STANDARD
+        custom(t["id"], t["name"], ids, t, series=SERIES_ID.get(t.get("series"), "other"), rtp=rtp, tag=t.get("tag"))
 
     def is_w(*names):
         return lambda m: m["weapon"] in names
@@ -338,78 +411,62 @@ def main():
     def not_gold(m):
         return m["rarity"] != "gold"
 
-    custom("bomzh", "Бомж", "#7a8699", lambda m: True,
-           pick(lambda m: m["rarity"] in ("consumer", "industrial"), 18)
-           + pick(lambda m: m["rarity"] == "milspec" and m["weapon"] in ("AK-47", "AWP"), 2))
-    custom("novice", "Новичок", "#5e98d9", lambda m: True,
-           pick(lambda m: m["rarity"] in ("industrial", "milspec"), 14)
-           + pick(lambda m: m["rarity"] == "restricted", 4)
-           + pick(lambda m: m["rarity"] == "classified", 2, spread=False))
-    custom("pistols", "Пистолеты", "#4b69ff", lambda m: True,
-           pick(lambda m: m["cat"] == "Pistols" and m["rarity"] != "consumer", 18))
-    custom("ak47", "АК-47", "#d32ce6", lambda m: True, pick(is_w("AK-47"), 18))
-    custom("awp", "AWP", "#00b4a6", lambda m: True, pick(is_w("AWP"), 18))
-    custom("m4", "M4 Мастер", "#3a7bd5", lambda m: True, pick(is_w("M4A4", "M4A1-S"), 18))
-    custom("deagle", "Дигл", "#c9a227", lambda m: True, pick(is_w("Desert Eagle"), 14))
-    custom("asiimov", "Асимов", "#ff7a00", lambda m: "Asiimov" in m["pattern"],
-           pick(lambda m: "Asiimov" in m["pattern"], 12) + pick(lambda m: m["rarity"] == "restricted", 6))
-    custom("red", "Красный", "#eb4b4b", lambda m: True,
-           pick(lambda m: m["rarity"] == "covert" and m["cat"] != "Gloves", 18))
-    custom("hyper", "Хайп", "#00e0ff", lambda m: True,
-           pick(lambda m: any(k in m["pattern"] for k in ("Hyper Beast", "Neo-Noir", "Printstream",
-                                                          "Bloodsport", "Vulcan", "Fire Serpent")), 16))
-    two_groups("fifty", "50/50", "#8847ff", lambda m: True,
-               pick(lambda m: m["rarity"] == "classified" and 150 < m["price"] < 260, 3),
-               pick(lambda m: m["rarity"] == "covert" and not_gold(m) and 450 < m["price"] < 700, 3),
-               RTP_STANDARD, "popular", "fifty", high_share=0.5)
-    two_groups("lottery", "1% Нож", "#ffd23f", lambda m: m["cat"] == "Knives",
-               pick(lambda m: m["rarity"] in ("industrial", "milspec") and 2 < m["price"] < 30, 8),
-               pick(lambda m: m["cat"] == "Knives" and m["pattern"] == "Vanilla", 3, spread=False),
-               RTP_LOTTERY, "popular", "lottery")
-    joker("joker", "Джокер АК", "#00ffa3", lambda m: True,
-          pick(lambda m: m["weapon"] == "AK-47" and m["price"] < 1500, 12))
-
-    def free_case(cid, name, color, cover_pred, item_ids, level, value):
+    def free_case(cid, name, theme, item_ids, level, value):
         """Бесплатный кейс раз в сутки с N уровня (как у Hellcase): RTP не нужен, задаём средний дроп."""
         variants = fixed(item_ids)
         tickets, k = solve_power(variants, value, 1.0)
-        add_case({"id": cid, "name": name, "cover": cover_of(variants, cover_pred), "color": color,
-                  "group": "free", "price": 0, "level": level, "value": value}, variants, tickets, k, "free")
+        add_case(with_theme({"id": cid, "name": name, "cover": cover_of(variants, lambda m: True),
+                             "group": "free", "price": 0, "level": level, "value": value}, theme, None, None),
+                 variants, tickets, k, "free")
         c = cases[-1]
         c["rtp"] = 0
         c["payback"] = 0
 
-    free_case("free1", "Ежедневный", "#2fd27a", lambda m: True,
-              pick(lambda m: m["rarity"] in ("consumer", "industrial", "milspec") and m["price"] < 60, 14)
-              + pick(lambda m: m["weapon"] == "AK-47" and m["rarity"] == "classified", 1, spread=False), 2, 6)
-    free_case("free2", "Бронзовый", "#cd7f32", lambda m: True,
-              pick(lambda m: m["rarity"] in ("milspec", "restricted") and m["price"] < 300, 14)
-              + pick(lambda m: m["weapon"] == "AWP" and m["rarity"] == "covert", 1, spread=False), 10, 25)
-    free_case("free3", "Золотой", "#ffd700", lambda m: m["cat"] == "Knives",
-              pick(lambda m: m["rarity"] in ("restricted", "classified") and m["price"] < 900, 14)
-              + pick(lambda m: m["cat"] == "Knives" and m["pattern"] == "Vanilla", 1, spread=False), 20, 90)
+    # ---------- серии авторских кейсов ----------
+    for t in THEMES:
+        themed(t)
 
-    custom("gloves", "Перчатки", "#e4ae39", lambda m: m["cat"] == "Gloves",
-           pick(lambda m: m["cat"] == "Gloves", 14) + pick(lambda m: m["rarity"] == "classified", 6),
-           rtp=RTP_KNIFE, group="elite")
-    custom("knife", "Ножевой", "#e4ae39", lambda m: m["cat"] == "Knives",
-           pick(lambda m: m["cat"] == "Knives" and m["price"] < 40000, 16), rtp=RTP_KNIFE, group="elite")
-    custom("karambit", "Керамбит", "#e4ae39", lambda m: m["weapon"] == "Karambit",
-           pick(is_w("Karambit"), 12) + pick(lambda m: m["rarity"] == "covert" and not_gold(m), 8),
-           rtp=RTP_KNIFE, group="elite")
-    custom("butterfly", "Бабочка", "#e4ae39", lambda m: m["weapon"] == "Butterfly Knife",
-           pick(is_w("Butterfly Knife"), 12) + pick(lambda m: m["rarity"] == "covert" and not_gold(m), 8),
-           rtp=RTP_KNIFE, group="elite")
-    custom("doppler", "Допплер", "#ff4fd8", lambda m: "Doppler" in m["pattern"],
-           pick(lambda m: "Doppler" in m["pattern"], 16) + pick(lambda m: m["rarity"] == "classified", 6),
-           rtp=RTP_KNIFE, group="elite")
-    custom("fade", "Фейд", "#ff9a3c", lambda m: m["pattern"] == "Fade",
-           pick(lambda m: "Fade" in m["pattern"], 16) + pick(lambda m: m["rarity"] == "restricted", 6),
-           group="elite")
-    custom("elite", "Элитный", "#ffd700", lambda m: True,
-           pick(lambda m: m["rarity"] == "gold" and m["ev"] > 30000, 10)
-           + pick(lambda m: m["rarity"] == "covert" and not_gold(m) and m["ev"] > 2500, 8),
-           rtp=RTP_KNIFE, group="elite")
+    # Премиум: ножи, перчатки, редкие паттерны
+    def prem(cid, name, emblem, colors, style, ids, rtp=RTP_KNIFE, tag=None):
+        custom(cid, name, ids, theme={"colors": colors, "style": style, "emblem": emblem}, series="premium", rtp=rtp, tag=tag)
+
+    prem("red", "Красная линия", "bolt", ["#d81e2c", "#4a0710", "#ff8a8a"], "military",
+         pick(lambda m: m["rarity"] == "covert" and m["cat"] != "Gloves" and not_gold(m), 30)
+         + pick(lambda m: m["rarity"] == "classified", 6, spread=False), rtp=RTP_STANDARD)
+    prem("karambit", "Керамбит", "knife", ["#b45309", "#3b1a03", "#fde68a"], "lux",
+         pick(is_w("Karambit"), 16) + pick(lambda m: m["rarity"] == "covert" and not_gold(m), 16), tag="hot")
+    prem("butterfly", "Бабочка", "butterfly", ["#9333ea", "#2e0b52", "#f0abfc"], "lux",
+         pick(is_w("Butterfly Knife"), 16) + pick(lambda m: m["rarity"] == "covert" and not_gold(m), 16))
+    prem("doppler", "Допплер", "gem", ["#db2777", "#4c0626", "#f9a8d4"], "neon",
+         pick(lambda m: "Doppler" in m["pattern"], 24) + pick(lambda m: m["rarity"] == "classified", 10))
+    prem("fade", "Градиент", "sun", ["#f97316", "#5b1d02", "#fde047"], "graffiti",
+         pick(lambda m: "Fade" in m["pattern"], 22) + pick(lambda m: m["rarity"] == "restricted", 12), rtp=RTP_STANDARD)
+    prem("elite", "Элитный", "crown", ["#1f1f24", "#050506", "#f5c542"], "lux",
+         pick(lambda m: m["rarity"] == "gold" and m["ev"] > 30000, 16)
+         + pick(lambda m: m["rarity"] == "covert" and not_gold(m) and m["ev"] > 2500, 14))
+
+    # Особые: лотерея, честный 50/50, равные шансы
+    two_groups("fifty", "50/50", {"colors": ["#4f46e5", "#1e1b4b", "#a5b4fc"], "style": "arcade", "emblem": "spade"},
+               pick(lambda m: m["rarity"] == "classified" and 150 < m["price"] < 260, 4),
+               pick(lambda m: m["rarity"] == "covert" and not_gold(m) and 450 < m["price"] < 700, 4),
+               RTP_STANDARD, "fifty", high_share=0.5)
+    two_groups("lottery", "1% Нож", {"colors": ["#eab308", "#422006", "#fef08a"], "style": "graffiti", "emblem": "dice"},
+               pick(lambda m: m["rarity"] in ("industrial", "milspec") and 2 < m["price"] < 30, 14),
+               pick(lambda m: m["cat"] == "Knives" and m["pattern"] == "Vanilla", 4, spread=False),
+               RTP_LOTTERY, "lottery", tag="hot")
+    joker("joker", "Джокер", {"colors": ["#16a34a", "#052e16", "#86efac"], "style": "arcade", "emblem": "mask"},
+          pick(lambda m: m["weapon"] == "AK-47" and m["price"] < 1500, 16))
+
+    # Бесплатные раз в сутки по уровням
+    free_case("free1", "Ежедневный", {"colors": ["#16a34a", "#052e16", "#bbf7d0"], "style": "military", "emblem": "egg"},
+              pick(lambda m: m["rarity"] in ("consumer", "industrial", "milspec") and m["price"] < 60, 22)
+              + pick(lambda m: m["weapon"] == "AK-47" and m["rarity"] == "classified", 1, spread=False), 2, 6)
+    free_case("free2", "Бронзовый", {"colors": ["#b45309", "#3b1a03", "#fdba74"], "style": "military", "emblem": "shield"},
+              pick(lambda m: m["rarity"] in ("milspec", "restricted") and m["price"] < 300, 22)
+              + pick(lambda m: m["weapon"] == "AWP" and m["rarity"] == "covert", 1, spread=False), 10, 25)
+    free_case("free3", "Золотой", {"colors": ["#ca8a04", "#3f2a00", "#fef08a"], "style": "lux", "emblem": "crown"},
+              pick(lambda m: m["rarity"] in ("restricted", "classified") and m["price"] < 900, 22)
+              + pick(lambda m: m["cat"] == "Knives" and m["pattern"] == "Vanilla", 1, spread=False), 20, 90)
 
     print(f"  {'кейс':<24}{'цена':>9}{'RTP':>8}{'окуп':>8}{'топ/цена':>9}{'k':>6}  предметов/строк")
     for c in cases:
@@ -423,7 +480,8 @@ def main():
     for c in cases:
         total = sum(t for _, vs in c["items"] for _, _, t in vs)
         assert total == TICKETS, f"{c['name']}: {total} билетов вместо {TICKETS}"
-    data = {"img": IMG_PREFIX, "skins": skins, "cases": cases}
+    used = {c.get("series") for c in cases}
+    data = {"img": IMG_PREFIX, "skins": skins, "series": [x for x in SERIES if x["id"] in used], "cases": cases}
     with open(OUT, "w", encoding="utf-8") as f:
         f.write("/* Сгенерировано scripts/build_data.py — не редактируйте вручную. */\n")
         f.write("window.DB=")

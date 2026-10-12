@@ -88,6 +88,7 @@
     let spinning = false;
     let rot = 0;
     App.$('#dBtn').onclick = async () => {
+      if (!App.requireLogin()) return;
       if (spinning || App.state.daily + DAY > Date.now()) return;
       const game = App.fair.begin('wheel');
       const f = game.next();
@@ -116,6 +117,7 @@
       draw();
     };
     App.$('#fBtn').onclick = () => {
+      if (!App.requireLogin()) return;
       const st = App.state;
       if (st.faucet + FAUCET_EVERY > Date.now() || st.balance >= FAUCET_LIMIT) return;
       st.faucet = Date.now();
@@ -125,6 +127,7 @@
     };
     App.$('#pForm').onsubmit = (e) => {
       e.preventDefault();
+      if (!App.requireLogin()) return;
       const code = App.$('#pCode').value.trim().toUpperCase();
       if (!code) return;
       if (!(code in PROMOS)) return App.toast('Промокод не найден', 'error');

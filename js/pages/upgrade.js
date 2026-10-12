@@ -172,6 +172,7 @@
     };
 
     App.$('#upBtn').onclick = async () => {
+      if (!App.requireLogin()) return;
       if (busy || !target) return;
       const ch = chance();
       if (coins > 0 && !App.pay(coins, 'Апгрейд (монеты)')) return;
