@@ -567,3 +567,28 @@ input:focus, select:focus { border-color: var(--accent); }
   .page-title { font-size: 24px; }
   .bc-foot { flex-direction: column; align-items: stretch; }
 }
+
+/* ---------- Steam ---------- */
+[hidden] { display: none !important; }
+.steam-ic {
+  display: inline-block; width: 18px; height: 18px; flex: none; background: currentColor; vertical-align: -3px;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1a11 11 0 0 0-10.96 10.1l5.9 2.44a3.1 3.1 0 0 1 1.98-.6l2.63-3.8v-.06a4.15 4.15 0 1 1 4.15 4.15h-.1l-3.74 2.67a3.11 3.11 0 0 1-6.17.66L1.47 14.9A11 11 0 1 0 12 1zM7.9 17.7l-1.36-.56a2.34 2.34 0 1 0 1.28-3.16l1.4.58a1.72 1.72 0 1 1-1.32 3.14zm7.79-5.58a2.77 2.77 0 1 0 0-5.53 2.77 2.77 0 0 0 0 5.53zm0-4.83a2.08 2.08 0 1 1 0 4.15 2.08 2.08 0 0 1 0-4.15z'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1a11 11 0 0 0-10.96 10.1l5.9 2.44a3.1 3.1 0 0 1 1.98-.6l2.63-3.8v-.06a4.15 4.15 0 1 1 4.15 4.15h-.1l-3.74 2.67a3.11 3.11 0 0 1-6.17.66L1.47 14.9A11 11 0 1 0 12 1zM7.9 17.7l-1.36-.56a2.34 2.34 0 1 0 1.28-3.16l1.4.58a1.72 1.72 0 1 1-1.32 3.14zm7.79-5.58a2.77 2.77 0 1 0 0-5.53 2.77 2.77 0 0 0 0 5.53zm0-4.83a2.08 2.08 0 1 1 0 4.15 2.08 2.08 0 0 1 0-4.15z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.steam-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border: 0; border-radius: 11px; cursor: pointer;
+  background: linear-gradient(180deg, #2a475e, #1b2838); color: #c7d5e0; font-weight: 600; box-shadow: inset 0 0 0 1px #66c0f455;
+  white-space: nowrap; transition: filter .15s;
+}
+.steam-btn:hover { filter: brightness(1.2); color: #fff; }
+.steam-btn-lg { height: 46px; padding: 0 20px; font-size: 15px; }
+.steam-box { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.steam-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.steam-txt b { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.steam-txt a { color: #66c0f4; }
+.badge-ok { background: #2fd27a22; color: var(--green); }
+.sync { margin-left: 8px; }
+.sync.s-idle { color: var(--green); }
+.sync.s-error { color: var(--red); }
+img.ava { object-fit: cover; background: var(--panel2); }
+@media (max-width: 1180px) { .hdr-right .steam-btn span { display: none; } .hdr-right .steam-btn { padding: 0 11px; } }

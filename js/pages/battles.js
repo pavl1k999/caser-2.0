@@ -11,7 +11,7 @@
   const battles = (App.battles = []);
   let seq = 1;
 
-  const me = () => ({ nick: App.state.nick, hue: App.state.avatar, me: true });
+  const me = () => App.me();
   const priceOf = (b) => Math.round(b.cases.reduce((a, id) => a + App.caseById(id).price, 0) * 100) / 100;
 
   function createBattle(cases, mode, crazy, creator) {
@@ -93,7 +93,7 @@
       return `<div class="brow ${mine ? 'mine' : ''}">
         <div class="brow-mode"><b>${MODES[b.mode].label}</b>${b.crazy ? '<span class="badge badge-crazy">Crazy</span>' : ''}</div>
         <div class="brow-cases">${b.cases.slice(0, 6).map((id) => `<span class="bc-thumb" title="${App.esc(App.caseById(id).name)}">${App.imgTag(App.caseById(id).cover)}</span>`).join('')}${b.cases.length > 6 ? `<em>+${b.cases.length - 6}</em>` : ''}<span class="muted small">${b.cases.length} раунд.</span></div>
-        <div class="brow-players">${b.slots.map((s) => (s ? App.avatar(s.nick, s.hue, s.me ? 'me' : '') : '<span class="ava ava-empty">+</span>')).join('')}</div>
+        <div class="brow-players">${b.slots.map((s) => (s ? App.avatar(s.nick, s.hue, s.me ? 'me' : '', s.img) : '<span class="ava ava-empty">+</span>')).join('')}</div>
         <div class="brow-price">${App.coin(b.price)}</div>
         <div class="brow-act">${status}</div>
       </div>`;
@@ -208,7 +208,7 @@
       const t = totals();
       b.slots.forEach((s, i) => {
         cols[i].querySelector('.bt-player').innerHTML = s
-          ? `${App.avatar(s.nick, s.hue, s.me ? 'me' : '')}<div><b>${App.esc(s.nick)}${s.me ? ' (вы)' : ''}</b>${App.coin(t[i])}</div>`
+          ? `${App.avatar(s.nick, s.hue, s.me ? 'me' : '', s.img)}<div><b>${App.esc(s.nick)}${s.me ? ' (вы)' : ''}</b>${App.coin(t[i])}</div>`
           : '<span class="ava ava-empty">?</span><div><b class="muted">Ожидание…</b></div>';
         cols[i].classList.toggle('winner', !!(b.winners && b.winners.includes(i)));
         cols[i].classList.toggle('loser', !!(b.winners && !b.winners.includes(i)));

@@ -158,7 +158,7 @@
     App.emit('feed', entry);
   };
   App.feedMine = (items, caseObj) => {
-    const me = { nick: App.state.nick, hue: App.state.avatar };
+    const me = App.me();
     items.forEach((it) => App.pushFeed({ it, user: me, caseObj, mine: true }));
   };
   App.formatChance = (p) => {

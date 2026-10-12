@@ -12,6 +12,34 @@
 - **Бонусы** — ежедневный бонус (растёт с уровнем), бесплатные монеты при низком балансе, промокоды (`WELCOME`, `CASESIM`, `FREE`, `KNIFE`).
 - Живая лента дропов, звуки, адаптивная вёрстка с нижним меню на телефонах.
 
+## Вход через Steam
+
+Кнопка «Войти через Steam» отправляет на официальный сайт **steamcommunity.com** (OpenID 2.0). Пароль вводится только там, сайт получает лишь SteamID. У каждого аккаунта своё сохранение; при первом входе прогресс гостя переезжает в аккаунт.
+
+Есть два режима:
+
+| | Без сервера (по умолчанию) | С сервером (Cloudflare Worker) |
+|---|---|---|
+| Настройка | ничего не нужно | ~10 минут, бесплатно |
+| SteamID | берётся из ответа без проверки подписи | проверяется у Steam |
+| Ник и аватар Steam | нет | да |
+| Сохранение между устройствами | нет | да (KV) |
+
+Режим без сервера работает только когда сайт открыт по `http(s)://` (GitHub Pages, `python3 -m http.server`), но не как файл.
+
+### Как включить сервер
+
+1. **Ключ Steam Web API**: https://steamcommunity.com/dev/apikey. Domain Name: адрес сайта, например `pavl1k999.github.io`. Ключ выдают только аккаунтам без ограничений (с покупками в Steam от $5).
+2. **Worker**: зарегистрируйтесь на https://dash.cloudflare.com → *Workers & Pages* → *Create* → *Create Worker*, имя `casesim-auth` → *Deploy* → *Edit code*. Замените код содержимым файла `worker/index.js` → *Deploy*.
+3. **Переменные** (Worker → *Settings* → *Variables and Secrets*):
+   - `ALLOWED_ORIGINS`, тип *Text*: `https://pavl1k999.github.io` (через запятую можно добавить `http://localhost:8000`);
+   - `SESSION_SECRET`, тип *Secret*: любая случайная строка от 32 символов;
+   - `STEAM_API_KEY`, тип *Secret*: ключ из шага 1.
+4. **Облачные сохранения** (по желанию): *Storage & Databases* → *KV* → *Create* (`casesim-state`), затем Worker → *Settings* → *Bindings* → *Add* → *KV namespace*, Variable name `STATE`.
+5. **Подключите сайт**: в `js/config.js` укажите адрес воркера, например `authApi: 'https://casesim-auth.ВАШ-НИК.workers.dev'`, закоммитьте и отправьте в GitHub.
+
+Через консоль то же самое: `cd worker && npx wrangler deploy`, затем `npx wrangler secret put SESSION_SECRET` и `npx wrangler secret put STEAM_API_KEY` (настройки в `worker/wrangler.toml`). Тесты сервера: `node worker/test.mjs`.
+
 ## Запуск
 
 Сборка не нужна — это статический сайт.
@@ -55,5 +83,8 @@ js/core.js            состояние, цены, звук, модалки, р
 js/components.js      карточки, рулетка, боты, лента
 js/pages/*.js         страницы: главная, кейс, апгрейд, контракты, батлы, профиль, бонусы/FAQ
 js/app.js             инициализация, шапка, живая лента
+js/auth.js            вход через Steam, облачные сохранения
+js/config.js          настройки (адрес сервера входа)
+worker/               сервер входа через Steam для Cloudflare Workers + тесты
 scripts/build_data.py генератор данных
 ```

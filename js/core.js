@@ -3,13 +3,18 @@
   'use strict';
   const App = (window.App = {});
 
-  App.config = {
-    brand: 'CASE',
-    brandAccent: 'SIM',
-    currency: 'монет',
-    startBalance: 500,
-    storageKey: 'casesim_state_v1',
-  };
+  App.config = Object.assign(
+    {
+      brand: 'CASE',
+      brandAccent: 'SIM',
+      currency: 'монет',
+      startBalance: 500,
+      storageKey: 'casesim_state_v1',
+      authApi: '',
+    },
+    window.CASESIM_CONFIG || {}
+  );
+  App.config.authApi = String(App.config.authApi || '').replace(/\/+$/, '');
 
   /* ---------------- утилиты ---------------- */
   App.$ = (s, r = document) => r.querySelector(s);
@@ -194,14 +199,42 @@
     sound: true,
     created: Date.now(),
   });
-  function load() {
+  App.defaults = defaults;
+
+  // сессия Steam: у каждого аккаунта своё сохранение, у гостя — своё
+  const SESSION_KEY = 'casesim_session';
+  App.session = null;
+  try {
+    App.session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  } catch (e) { /* ignore */ }
+  App.setSession = (s) => {
+    App.session = s;
     try {
-      const raw = localStorage.getItem(App.config.storageKey);
+      if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch (e) { /* ignore */ }
+  };
+  App.stateKey = (sid = App.session && App.session.sid) =>
+    sid ? `${App.config.storageKey}:${sid}` : App.config.storageKey;
+  App.readState = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
       if (raw) return Object.assign(defaults(), JSON.parse(raw));
     } catch (e) { /* приватный режим и т.п. */ }
-    return defaults();
-  }
-  App.state = load();
+    return null;
+  };
+  App.writeState = (key, st) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(st));
+    } catch (e) { /* ignore */ }
+  };
+  App.state = App.readState(App.stateKey()) || defaults();
+  // заменить текущее состояние (вход/выход, облачное сохранение)
+  App.loadState = (st, { silent } = {}) => {
+    App.state = Object.assign(defaults(), st || {});
+    App.writeState(App.stateKey(), App.state);
+    if (!silent) App.emit('state');
+  };
   App.save = () => {
     const st = App.state;
     // храним всю историю инвентаря, но не бесконечно
@@ -209,10 +242,10 @@
     const old = st.items.filter((i) => i.state !== 'inv').slice(-300);
     st.items = inv.concat(old).sort((a, b) => a.ts - b.ts);
     st.log = st.log.slice(-100);
-    try {
-      localStorage.setItem(App.config.storageKey, JSON.stringify(st));
-    } catch (e) { /* ignore */ }
+    st.updatedAt = Date.now();
+    App.writeState(App.stateKey(), st);
     App.emit('state');
+    App.emit('saved');
   };
   App.reset = () => {
     App.state = defaults();
@@ -290,8 +323,13 @@
   };
   App.avatarStyle = (hue) =>
     `background:linear-gradient(135deg,hsl(${hue},80%,55%),hsl(${(hue + 60) % 360},80%,40%))`;
-  App.avatar = (nick, hue, cls = '') =>
-    `<span class="ava ${cls}" style="${App.avatarStyle(hue)}">${App.esc((nick || '?').slice(0, 1).toUpperCase())}</span>`;
+  App.avatar = (nick, hue, cls = '', img = '') =>
+    img
+      ? `<img class="ava ${cls}" src="${App.esc(img)}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(App.el(App.avatar(${App.esc(JSON.stringify(nick || '?'))}, ${+hue || 0}, '${cls}')))">`
+      : `<span class="ava ${cls}" style="${App.avatarStyle(hue)}">${App.esc((nick || '?').slice(0, 1).toUpperCase())}</span>`;
+  // аватар текущего игрока (Steam, если вошёл)
+  App.me = () => ({ nick: App.state.nick, hue: App.state.avatar, img: (App.session && App.session.avatar) || '', me: true });
+  App.myAvatar = (cls = '') => App.avatar(App.state.nick, App.state.avatar, cls, (App.session && App.session.avatar) || '');
 
   /* ---------------- звук ---------------- */
   let actx = null;

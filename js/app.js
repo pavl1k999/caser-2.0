@@ -6,7 +6,8 @@
   function header() {
     const st = App.state;
     $('#balance').innerHTML = App.coin(st.balance);
-    $('#userAva').innerHTML = App.avatar(st.nick, st.avatar);
+    $('#userAva').innerHTML = App.myAvatar();
+    $('#steamBtn').hidden = !!App.session;
     $('#userNick').textContent = st.nick;
     $('#userLvl').textContent = App.levelInfo().lvl + ' ур.';
     $('#soundBtn').classList.toggle('off', !st.sound);
@@ -66,6 +67,11 @@
   function init() {
     $('#brand').innerHTML = `${App.config.brand}<span>${App.config.brandAccent}</span>`;
     document.title = `${App.config.brand}${App.config.brandAccent} — симулятор кейсов CS2`;
+    $('#steamBtn').onclick = (e) => {
+      e.preventDefault();
+      App.auth.login();
+    };
+    App.auth.init();
     $('#soundBtn').onclick = () => {
       App.state.sound = !App.state.sound;
       App.save();
@@ -88,10 +94,11 @@
     tickOnline();
     setInterval(tickOnline, 4000);
     App.on('state', header);
+    App.on('sync', header);
     App.on('route', activeNav);
     // синхронизация между вкладками
     window.addEventListener('storage', (e) => {
-      if (e.key === App.config.storageKey && e.newValue) {
+      if (e.key === App.stateKey() && e.newValue) {
         try { Object.assign(App.state, JSON.parse(e.newValue)); header(); } catch (err) { /* ignore */ }
       }
     });

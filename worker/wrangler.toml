@@ -1,0 +1,18 @@
+# Конфигурация Cloudflare Worker для входа через Steam.
+# Деплой: cd worker && npx wrangler deploy
+# Секреты:  npx wrangler secret put SESSION_SECRET
+#           npx wrangler secret put STEAM_API_KEY
+name = "casesim-auth"
+main = "index.js"
+compatibility_date = "2024-09-23"
+
+[vars]
+# Адреса сайта через запятую, без слэша в конце
+ALLOWED_ORIGINS = "https://pavl1k999.github.io,http://localhost:8000"
+
+# Облачные сохранения (по желанию). Создайте хранилище:
+#   npx wrangler kv namespace create STATE
+# и вставьте выданный id ниже, раскомментировав блок.
+# [[kv_namespaces]]
+# binding = "STATE"
+# id = "ВАШ_ID"

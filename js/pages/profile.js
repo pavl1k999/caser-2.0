@@ -15,13 +15,14 @@
       const s = st.stats;
       root.innerHTML = `
         <section class="prof panel">
-          <div class="prof-ava" id="pfAva" title="Сменить цвет">${App.avatar(st.nick, st.avatar, 'xl')}</div>
+          <div class="prof-ava" id="pfAva" title="${App.session && App.session.avatar ? 'Аватар Steam' : 'Сменить цвет'}">${App.myAvatar('xl')}</div>
           <div class="prof-main">
             <div class="prof-nick"><input id="pfNick" maxlength="20" value="${App.esc(st.nick)}"><span class="muted small">✎</span></div>
             <div class="prof-lvl"><span class="lvl">${lv.lvl}</span><div class="bar"><i style="width:${(lv.cur / lv.next) * 100}%"></i></div><span class="muted small">${App.fmt(lv.cur)} / ${App.fmt(lv.next)} XP</span></div>
           </div>
           <div class="prof-bal"><span class="muted">Баланс</span>${App.coin(st.balance, 'lg')}<a class="btn btn-accent btn-sm" href="#/bonus">Получить монеты</a></div>
         </section>
+        ${steamBlock()}
         <section class="stats">
           ${tile('Открыто кейсов', s.opened)}
           ${tile('Апгрейды', `${s.upWins} / ${s.upgrades}`)}
@@ -53,6 +54,27 @@
       body(inv);
       bind(inv);
     };
+    const SYNC_RU = { idle: 'сохранено в облаке', saving: 'сохраняем…', error: 'ошибка синхронизации', off: 'облако выключено' };
+    function steamBlock() {
+      const ses = App.session;
+      if (!ses) {
+        return `<section class="panel steam-box">
+          <div class="steam-txt"><b>Привяжите аккаунт Steam</b>
+            <span class="muted small">Прогресс будет храниться отдельно для вашего аккаунта${App.config.authApi ? ' и синхронизироваться между устройствами' : ''}. Вход происходит на официальном сайте steamcommunity.com: мы получаем только SteamID и никогда не спрашиваем пароль.</span></div>
+          <button class="steam-btn steam-btn-lg" id="pfSteam"><i class="steam-ic"></i><span>Войти через Steam</span></button>
+        </section>`;
+      }
+      const sync = App.auth.sync !== 'off' || App.auth.syncError
+        ? `<span class="sync s-${App.auth.sync}">${App.esc(App.auth.syncError || SYNC_RU[App.auth.sync])}</span>` : '';
+      return `<section class="panel steam-box">
+        <div class="steam-txt">
+          <b><i class="steam-ic"></i> Steam: ${App.esc(ses.name || App.state.nick)}
+            ${ses.verified ? '<span class="badge badge-ok">подтверждён</span>' : '<span class="badge" title="Сайт работает без сервера входа: SteamID не проверяется, ник и аватар не загружаются">без проверки</span>'}</b>
+          <span class="muted small">SteamID64: <a href="https://steamcommunity.com/profiles/${ses.sid}" target="_blank" rel="noopener">${ses.sid}</a> ${sync}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="pfLogout">Выйти</button>
+      </section>`;
+    }
     const tile = (t, v) => `<div class="tile"><span>${t}</span><b>${v}</b></div>`;
     const STATE_RU = { sold: 'Продан', upgraded: 'Апгрейд', lost: 'Сгорел', contract: 'Контракт', inv: 'В инвентаре' };
 
@@ -108,6 +130,10 @@
           App.toast('Ник сохранён', 'success');
         }
       };
+      const ls = App.$('#pfSteam');
+      if (ls) ls.onclick = () => App.auth.login();
+      const lo = App.$('#pfLogout');
+      if (lo) lo.onclick = () => { App.auth.logout(); draw(); };
       App.$('#pfAva').onclick = () => {
         App.state.avatar = (App.state.avatar + 47) % 360;
         App.save();
@@ -145,5 +171,11 @@
     }
 
     draw();
+    const redraw = () => {
+      if (document.activeElement && document.activeElement.id === 'pfNick') return;
+      draw();
+    };
+    App.onLeave(App.on('state', redraw));
+    App.onLeave(App.on('sync', redraw));
   });
 })();
