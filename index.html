@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CASESIM — симулятор кейсов CS2</title>
+  <meta name="description" content="Симулятор открытия кейсов CS2 на виртуальную валюту: кейсы, апгрейды, контракты и батлы. Без реальных денег.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffb400'/%3E%3Cpath d='M9 12h14v11H9z' fill='%23151722'/%3E%3Cpath d='M8 9h16v4H8z' fill='%23151722'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="hdr">
+    <div class="hdr-in">
+      <a class="logo" href="#/"><i class="logo-ic"></i><b id="brand">CASESIM</b></a>
+      <nav class="nav">
+        <a href="#/" data-nav="/"><i class="ni ni-cases"></i>Кейсы</a>
+        <a href="#/upgrade" data-nav="/upgrade"><i class="ni ni-up"></i>Апгрейд</a>
+        <a href="#/contracts" data-nav="/contracts"><i class="ni ni-ct"></i>Контракты</a>
+        <a href="#/battles" data-nav="/battles"><i class="ni ni-bt"></i>Батлы</a>
+        <a href="#/bonus" data-nav="/bonus"><i class="ni ni-bonus"></i>Бонусы</a>
+      </nav>
+      <div class="hdr-right">
+        <span class="online"><i></i><b id="online">—</b> онлайн</span>
+        <button class="icon-btn" id="soundBtn" title="Звук" aria-label="Звук"></button>
+        <a class="bal" href="#/bonus" title="Получить бесплатные монеты"><span id="balance"></span><em>+</em></a>
+        <a class="user" href="#/profile" data-nav="/profile">
+          <span id="userAva"></span>
+          <span class="user-txt"><b id="userNick"></b><small id="userLvl"></small></span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <div class="feed">
+    <div class="feed-tabs" id="feedTabs">
+      <span class="live"><i></i>LIVE</span>
+      <button data-f="all" class="on">Все</button>
+      <button data-f="top">Топ</button>
+    </div>
+    <div class="feed-list" id="feedList"></div>
+  </div>
+
+  <main id="page" class="page"></main>
+
+  <footer class="ftr">
+    <div class="ftr-in">
+      <div>
+        <a class="logo" href="#/"><i class="logo-ic"></i><b>CASE<span>SIM</span></b></a>
+        <p class="muted small">Симулятор открытия кейсов CS2. Вся валюта виртуальная: её нельзя купить, продать или вывести. Сайт не связан с Valve, Steam и сторонними кейс-сайтами.</p>
+      </div>
+      <div class="ftr-links">
+        <a href="#/faq">FAQ</a>
+        <a href="#/bonus">Бонусы</a>
+        <a href="#/profile">Профиль</a>
+      </div>
+      <div class="muted small">© <span id="year"></span> · без реальных денег</div>
+    </div>
+  </footer>
+
+  <nav class="mnav">
+    <a href="#/" data-nav="/"><i class="ni ni-cases"></i>Кейсы</a>
+    <a href="#/upgrade" data-nav="/upgrade"><i class="ni ni-up"></i>Апгрейд</a>
+    <a href="#/battles" data-nav="/battles"><i class="ni ni-bt"></i>Батлы</a>
+    <a href="#/contracts" data-nav="/contracts"><i class="ni ni-ct"></i>Контракты</a>
+    <a href="#/profile" data-nav="/profile"><i class="ni ni-user"></i>Профиль</a>
+  </nav>
+
+  <script src="js/data.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/components.js"></script>
+  <script src="js/pages/home.js"></script>
+  <script src="js/pages/case.js"></script>
+  <script src="js/pages/upgrade.js"></script>
+  <script src="js/pages/contracts.js"></script>
+  <script src="js/pages/battles.js"></script>
+  <script src="js/pages/profile.js"></script>
+  <script src="js/pages/bonus.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

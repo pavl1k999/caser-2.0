@@ -1,0 +1,106 @@
+/* Шапка, лента живых дропов, запуск приложения. */
+(function () {
+  'use strict';
+  const { $, $$ } = App;
+
+  function header() {
+    const st = App.state;
+    $('#balance').innerHTML = App.coin(st.balance);
+    $('#userAva').innerHTML = App.avatar(st.nick, st.avatar);
+    $('#userNick').textContent = st.nick;
+    $('#userLvl').textContent = App.levelInfo().lvl + ' ур.';
+    $('#soundBtn').classList.toggle('off', !st.sound);
+  }
+  function activeNav(path) {
+    const sect = '/' + (path.split('/')[1] || '');
+    $$('[data-nav]').forEach((a) => {
+      const n = a.dataset.nav;
+      a.classList.toggle('on', n === sect || (n === '/' && sect === '/case') || (n === '/battles' && sect === '/battle'));
+    });
+  }
+
+  /* ---------------- лента ---------------- */
+  let feedFilter = 'all';
+  function feedCard(e) {
+    const s = App.skin(e.it.sid);
+    const color = App.RARITY[s.rarity].color;
+    return `<a class="drop ${e.mine ? 'mine' : ''}" style="--rc:${color}" href="${e.caseObj ? '#/case/' + e.caseObj.id : '#/'}">
+      ${App.imgTag(s.img)}
+      <div class="drop-hover">
+        ${e.caseObj ? App.imgTag(e.caseObj.cover, 'drop-case') : ''}
+        <span>${App.esc(e.user.nick)}</span>
+      </div>
+      <div class="drop-name"><span>${App.esc(s.title)}</span><b>${App.esc(s.sub)}</b></div>
+    </a>`;
+  }
+  const passes = (e) => feedFilter === 'all' || e.it.price >= 500;
+  function drawFeed() {
+    $('#feedList').innerHTML = App.feed.filter(passes).slice(0, 24).map(feedCard).join('');
+  }
+  App.on('feed', (e) => {
+    if (!passes(e)) return;
+    const list = $('#feedList');
+    const el = App.el(feedCard(e));
+    el.classList.add('new');
+    list.prepend(el);
+    while (list.children.length > 24) list.lastElementChild.remove();
+  });
+  function botLoop() {
+    // редкие дропы дорогих вещей для «топа»
+    let d = App.botDrop();
+    if (Math.random() < 0.08) {
+      const c = App.weighted(App.cases.filter((x) => x.price > 300), () => 1);
+      d = { it: App.rollCase(c), user: App.makeBot(), caseObj: c };
+    }
+    App.pushFeed(d);
+    setTimeout(botLoop, App.randInt(1200, 4200));
+  }
+
+  /* ---------------- онлайн ---------------- */
+  let online = App.randInt(900, 1400);
+  function tickOnline() {
+    online = Math.max(600, online + App.randInt(-15, 18));
+    $('#online').textContent = online.toLocaleString('ru-RU');
+  }
+
+  function init() {
+    $('#brand').innerHTML = `${App.config.brand}<span>${App.config.brandAccent}</span>`;
+    document.title = `${App.config.brand}${App.config.brandAccent} — симулятор кейсов CS2`;
+    $('#soundBtn').onclick = () => {
+      App.state.sound = !App.state.sound;
+      App.save();
+    };
+    $('#feedTabs').onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      feedFilter = b.dataset.f;
+      $$('#feedTabs button').forEach((x) => x.classList.toggle('on', x === b));
+      drawFeed();
+    };
+    for (let i = 0; i < 18; i++) App.feed.push(App.botDrop());
+    // в стартовой ленте пара «топовых» дропов
+    for (let i = 0; i < 3; i++) {
+      const c = App.pickOne(App.cases.filter((x) => x.group === 'elite'));
+      App.feed.splice(App.randInt(0, 12), 0, { it: App.rollCase(c), user: App.makeBot(), caseObj: c });
+    }
+    drawFeed();
+    setTimeout(botLoop, 1500);
+    tickOnline();
+    setInterval(tickOnline, 4000);
+    App.on('state', header);
+    App.on('route', activeNav);
+    // синхронизация между вкладками
+    window.addEventListener('storage', (e) => {
+      if (e.key === App.config.storageKey && e.newValue) {
+        try { Object.assign(App.state, JSON.parse(e.newValue)); header(); } catch (err) { /* ignore */ }
+      }
+    });
+    header();
+    $('#year').textContent = new Date().getFullYear();
+    window.addEventListener('hashchange', App.navigate);
+    App.navigate();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
