@@ -21,7 +21,8 @@
 
   const priceOf = (b) => Math.round(b.cases.reduce((a, id) => a + App.caseById(id).price, 0) * 100) / 100;
   const groupsOf = (b) => FORMATS[b.format].teams || b.slots.map((_, i) => [i]);
-  const playable = () => App.cases.filter((c) => c.price > 0);
+  // для батлов: сначала кейсы сайта по цене, затем копии кейсов CS2
+  const playable = () => App.cases.filter((c) => c.price > 0).sort((a, b) => a.isCrate - b.isCrate || a.price - b.price);
 
   function createBattle(cases, format, game, creator) {
     const b = {

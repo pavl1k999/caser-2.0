@@ -424,8 +424,9 @@ def main():
         c["payback"] = 0
 
     # ---------- серии авторских кейсов ----------
+    TAGS = {"fire": "hot", "dragon": "hot", "awp": "hot", "bomzh": "hot", "cyber": "new", "kraken": "new", "galaxy": "new", "oligarch": "new"}
     for t in THEMES:
-        themed(t)
+        themed({**t, "tag": t.get("tag") or TAGS.get(t["id"])})
 
     # Премиум: ножи, перчатки, редкие паттерны
     def prem(cid, name, emblem, colors, style, ids, rtp=RTP_KNIFE, tag=None):

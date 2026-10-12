@@ -30,6 +30,11 @@
             ${c.free ? '' : `<span>Шанс окупа <b>${App.formatChance(c.payback)}</b></span>`}
           </div>
         </div>
+        <div class="case-top">
+          <div class="case-top-t">Главные призы</div>
+          <div class="case-top-list">${c.items.slice().sort((a, b) => b.hi - a.hi).slice(0, 4)
+            .map((x) => App.itemCard({ sid: x.sid, price: x.hi }, { cls: 'mini', chance: App.formatChance(x.chance) })).join('')}</div>
+        </div>
       </section>
       <section class="opener">
         <div id="rouls" class="rouls"></div>
@@ -61,7 +66,11 @@
           </div>
         </div>
         <div class="igrid" id="contents"></div>
-      </section>`;
+      </section>
+      ${(() => {
+        const same = App.cases.filter((x) => x.id !== c.id && (c.series ? x.series === c.series : c.isCrate ? x.isCrate : x.free === c.free)).slice(0, 6);
+        return same.length ? `<section class="series"><div class="series-head"><h2>${series ? `Ещё из серии «${App.esc(series.name)}»` : 'Похожие кейсы'}</h2></div><div class="cgrid">${same.map(App.caseCard).join('')}</div></section>` : '';
+      })()}`;
 
     function oddsByRarity() {
       const m = {};
