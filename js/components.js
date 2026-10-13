@@ -17,8 +17,9 @@
       img.src = FALLBACK;
     }
   };
-  const imgTag = (src, cls = '') =>
-    `<img class="${cls}" src="${esc(src)}" alt="" loading="lazy" draggable="false" onerror="App.imgFallback(this)">`;
+  // eager — для рулетки: полосу двигает композитор, и ленивые картинки могли бы не успеть подгрузиться
+  const imgTag = (src, cls = '', eager = false) =>
+    `<img class="${cls}" src="${esc(src)}" alt="" ${eager ? 'decoding="async"' : 'loading="lazy"'} draggable="false" onerror="App.imgFallback(this)">`;
   App.imgTag = imgTag;
 
   /**
@@ -34,21 +35,25 @@
     const chance = opts.chance != null ? `<span class="ic-chance">${opts.chance}</span>` : '';
     return `<div class="icard ${opts.cls || ''}" style="--rc:${color}" ${it.uid ? `data-uid="${it.uid}"` : ''} ${opts.attrs || ''} title="${esc(it.wear != null ? App.itemName(it) : s.title + ' | ' + s.sub)}">
       <div class="ic-top">${st}${wear}${chance}</div>
-      <div class="ic-img">${imgTag(s.img)}</div>
+      <div class="ic-img">${imgTag(s.img, '', opts.eager)}</div>
       <div class="ic-name"><span>${esc(s.title)}</span><b>${esc(s.sub)}</b></div>
       ${opts.noPrice ? '' : `<div class="ic-price">${App.coin(price)}</div>`}
       ${opts.extra || ''}
     </div>`;
   };
 
-  // обложка кейса: у копий кейсов CS2 — картинка Steam, у кейсов сайта — своя коробка в SVG
-  const artCache = new Map();
-  App.caseArt = (c) => {
-    if (c.isCrate) return imgTag(c.cover);
-    if (!artCache.has(c.id)) artCache.set(c.id, App.art.caseSVG({ id: c.id, label: c.name, ...c.theme }));
-    return artCache.get(c.id);
+  // обложка кейса: у копий кейсов CS2 — картинка Steam, у кейсов сайта — своя коробка в SVG.
+  // SVG собирается один раз в blob-URL (App.art.caseUrl): в DOM один <img> вместо сотни узлов,
+  // и витрина, лента, батлы и страница кейса делят одну и ту же картинку.
+  // opts.eager — обложка в шапке страницы кейса, грузим сразу
+  App.caseArtUrl = (c) => (c.isCrate ? c.cover : App.art.caseUrl({ id: c.id, label: c.name, ...c.theme }));
+  App.caseArt = (c, opts = {}) => {
+    if (c.isCrate) return imgTag(c.cover, 'crate-art', opts.eager);
+    return `<img class="case-art" src="${App.caseArtUrl(c)}" width="240" height="190" alt="" decoding="async" loading="${opts.eager ? 'eager' : 'lazy'}" draggable="false">`;
   };
   App.caseColor = (c) => (c.theme && c.theme.colors ? c.theme.colors[0] : '#8a91a8');
+  // цвет ореола за коробкой (акцент темы)
+  const caseGlow = (c) => (c.theme && c.theme.colors ? c.theme.colors[2] || c.theme.colors[0] : '#8a91a8');
 
   App.caseCard = (c) => {
     const tags = [];
@@ -58,7 +63,7 @@
     if (c.mode === 'lottery') tags.push('<span class="cc-tag">Лотерея</span>');
     if (c.mode === 'joker') tags.push('<span class="cc-tag">Равные шансы</span>');
     const top = c.rows[c.rows.length - 1].price;
-    return `<a class="ccard ${c.isCrate ? 'is-crate' : 'is-custom'}" href="#/case/${c.id}" style="--cc:${App.caseColor(c)}">
+    return `<a class="ccard ${c.isCrate ? 'is-crate' : 'is-custom'}" href="#/case/${c.id}" style="--cc:${App.caseColor(c)};--ca:${caseGlow(c)}">
       <div class="cc-tags">${tags.join('')}</div>
       <div class="cc-art">${App.caseArt(c)}</div>
       <div class="cc-name">${esc(c.name)}</div>
@@ -163,44 +168,102 @@
     return tier;
   };
 
+  /* ---------------- бесконечные анимации: пауза вне экрана и в фоновой вкладке ---------------- */
+  // класс .anim-off ставит animation-play-state: paused (см. css). Следим за героем и обложкой кейса.
+  const motionIO = 'IntersectionObserver' in window
+    ? new IntersectionObserver((es) => es.forEach((e) => {
+      if (!e.target.isConnected) return motionIO.unobserve(e.target);
+      e.target.classList.toggle('anim-off', !e.isIntersecting);
+    }))
+    : null;
+  App.watchMotion = (root = document) => {
+    if (motionIO) root.querySelectorAll('.hero-scene, .case-cover').forEach((el) => motionIO.observe(el));
+  };
+  document.addEventListener('visibilitychange', () => document.documentElement.classList.toggle('doc-hidden', document.hidden));
+  App.on('route', () => {
+    App.watchMotion();
+    // обложка в шапке страницы кейса видна сразу — грузим без ленивой очереди
+    const cov = document.querySelector('#caseCover img[loading="lazy"]');
+    if (cov) {
+      cov.loading = 'eager';
+      cov.fetchPriority = 'high';
+    }
+  });
+
   /* ---------------- рулетка ---------------- */
-  const STRIP = 60;
+  // после выигрыша видно не больше 4 карточек справа, поэтому хвост полосы короткий
   const WIN_AT = 50;
+  const STRIP = WIN_AT + 6;
+  const NEAR = 6; // сколько соседей выигрыша видно в конце прокрутки (с запасом)
+  const KEYS = 120; // точек в ключевых кадрах прокрутки
   const ease = (t) => 1 - Math.pow(1 - t, 4.2);
+  const preload = (src) => {
+    const im = new Image();
+    im.decoding = 'async';
+    im.src = src;
+    if (im.decode) im.decode().catch(() => {});
+  };
 
   /**
-   * App.roulette({ caseObj, vertical }) → { el, spin(win, {fast}) : Promise }
+   * App.roulette({ caseObj, vertical }) → { el, spin(win, {fast}) : Promise, reset() }
    * Полоса заполняется случайными предметами кейса (по шансам), на позиции WIN_AT стоит выигрыш.
+   * Прокрутка — Web Animation на transform: её считает композитор, главный поток в это время свободен.
+   * Результат решён до анимации; точка остановки и доводка к центру считаются так же, как раньше.
    */
   App.roulette = ({ caseObj, vertical = false, compact = false }) => {
     const el = App.el(`<div class="roul ${vertical ? 'roul-v' : 'roul-h'} ${compact ? 'roul-compact' : ''}">
       <div class="roul-track"></div><div class="roul-marker"></div><div class="roul-fade"></div></div>`);
     const track = el.querySelector('.roul-track');
     const filler = () => App.weighted(caseObj.items, (x) => Math.pow(x.chance, 0.6));
+    const card = (it) => App.itemCard(it, { noPrice: true, cls: 'roul-card', eager: true });
+    const at = (p) => (vertical ? `translate3d(0,${p}px,0)` : `translate3d(${p}px,0,0)`);
+    let anims = [];
+    let run = 0; // номер текущего спина: старые колбэки после reset() ничего не делают
+    let used = false; // полоса уже крутилась — соседи прошлого выигрыша знакомы зрителю
+    let refreshT = 0;
 
-    function fill(win) {
-      const cards = [];
-      for (let i = 0; i < STRIP; i++) {
-        const it = i === WIN_AT && win ? win : { sid: filler().sid };
-        cards.push(App.itemCard(it, { noPrice: true, cls: 'roul-card' }));
-      }
-      track.innerHTML = cards.join('');
+    track.innerHTML = Array.from({ length: STRIP }, () => card({ sid: filler().sid })).join('');
+    // заменить карточки [a, b) новыми случайными; остальные элементы полосы остаются на месте
+    function refill(a, b) {
+      const kids = Array.from(track.children).slice(a, b);
+      const t = document.createElement('template');
+      t.innerHTML = kids.map(() => card({ sid: filler().sid })).join('');
+      const fresh = Array.from(t.content.children);
+      kids.forEach((k, i) => k.replaceWith(fresh[i]));
     }
-    fill(null);
-    const startShift = () => {
-      const card = track.children[0];
-      if (!card) return 0;
-      const size = vertical ? card.offsetHeight : card.offsetWidth;
-      return size * 2;
+    // дальние карточки обновляем после остановки, пока их не видно
+    const flushRefresh = () => {
+      if (!refreshT) return;
+      clearTimeout(refreshT);
+      refreshT = 0;
+      refill(0, WIN_AT - NEAR);
     };
+    const stop = () => {
+      run++;
+      anims.forEach((a) => a.cancel());
+      anims = [];
+    };
+    const startShift = () => {
+      const c = track.children[0];
+      if (!c) return 0;
+      return (vertical ? c.offsetHeight : c.offsetWidth) * 2;
+    };
+    function setPos(p) {
+      track.style.transform = at(p);
+    }
     requestAnimationFrame(() => setPos(-startShift()));
 
-    function setPos(p) {
-      track.style.transform = vertical ? `translate3d(0,${p}px,0)` : `translate3d(${p}px,0,0)`;
-    }
-
     function spin(win, { fast = false, duration } = {}) {
-      fill(win);
+      stop();
+      const my = run;
+      flushRefresh();
+      // соседей прошлого выигрыша меняем сейчас: полоса всё равно прыгает к началу
+      if (used) refill(WIN_AT - NEAR, STRIP);
+      used = true;
+      const s = App.skin(win.sid);
+      preload(s.img);
+      track.children[WIN_AT].replaceWith(App.el(card(win)));
+      el.classList.remove('done');
       const cards = track.children;
       const first = cards[0];
       const gap = parseFloat(getComputedStyle(track).gap) || 0;
@@ -210,50 +273,56 @@
       const inner = App.rand(0.12, 0.88) * (size - gap);
       const to = WIN_AT * size + inner - view / 2;
       const dur = duration || (fast ? 1400 : 6500);
+      const posAt = (t) => from + (to - from) * ease(t);
+      // ключевые кадры по той же кривой; последний — ровно to
+      const keys = [];
+      for (let i = 0; i <= KEYS; i++) keys.push({ offset: i / KEYS, transform: at(-posAt(i / KEYS)) });
+      keys[KEYS].transform = at(-to);
       el.classList.add('spinning');
-      return new Promise((resolve) => {
-        const t0 = performance.now();
-        let lastIdx = -1;
-        let lastPos = from, blurLvl = 0;
-        function frame(now) {
-          const t = Math.min(1, (now - t0) / dur);
-          const pos = from + (to - from) * ease(t);
-          setPos(-pos);
-          // размытие в движении: три ступени, чтобы не перерисовывать фильтр каждый кадр
-          const v = Math.abs(pos - lastPos);
-          lastPos = pos;
-          const lvl = v > 40 ? 2 : v > 18 ? 1 : 0;
-          if (lvl !== blurLvl) {
-            blurLvl = lvl;
-            track.style.filter = lvl ? `blur(${lvl * 1.2}px)` : '';
-          }
-          const idx = Math.floor((pos + view / 2) / size);
-          if (idx !== lastIdx) {
-            lastIdx = idx;
-            App.sound.tick();
-          }
-          if (t < 1) requestAnimationFrame(frame);
-          else {
-            // плавно доводим ровно к центру выигрышной карточки
-            const center = WIN_AT * size + (size - gap) / 2 - view / 2;
-            track.style.filter = '';
-            track.style.transition = 'transform .5s ease';
-            setPos(-center);
-            cards[WIN_AT].classList.add('roul-win');
-            el.classList.remove('spinning');
-            el.classList.add('done');
-            setTimeout(() => {
-              track.style.transition = '';
-              resolve(win);
-            }, fast ? 250 : 550);
-          }
+      const anim = track.animate(keys, { duration: dur, easing: 'linear', fill: 'forwards' });
+      anims.push(anim);
+      // щелчки: позицию берём из времени анимации, DOM не трогаем
+      let lastIdx = -1;
+      const tick = () => {
+        if (my !== run || anim.playState !== 'running') return;
+        const t = Math.min(1, (anim.currentTime || 0) / dur);
+        const idx = Math.floor((posAt(t) + view / 2) / size);
+        if (idx !== lastIdx) {
+          lastIdx = idx;
+          App.sound.tick();
         }
-        requestAnimationFrame(frame);
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      return new Promise((resolve) => {
+        anim.finished.then(() => {
+          if (my !== run) return resolve(win);
+          // плавно доводим ровно к центру выигрышной карточки
+          const center = WIN_AT * size + (size - gap) / 2 - view / 2;
+          setPos(-center);
+          const settle = track.animate([{ transform: at(-to) }, { transform: at(-center) }], { duration: 500, easing: 'ease', fill: 'forwards' });
+          anim.cancel();
+          anims = [settle];
+          settle.finished.then(() => my === run && settle.cancel(), () => {});
+          const kids = track.children;
+          for (let i = WIN_AT - NEAR; i < STRIP; i++) kids[i].classList.add('near');
+          kids[WIN_AT].classList.add('roul-win');
+          el.classList.remove('spinning');
+          el.classList.add('done');
+          refreshT = setTimeout(() => {
+            refreshT = 0;
+            refill(0, WIN_AT - NEAR);
+          }, 800);
+          setTimeout(() => resolve(win), fast ? 250 : 550);
+        }, () => resolve(win));
       });
     }
     function reset() {
-      el.classList.remove('done');
-      fill(null);
+      stop();
+      flushRefresh();
+      if (used) refill(WIN_AT - NEAR, STRIP);
+      used = false;
+      el.classList.remove('done', 'spinning');
       setPos(-startShift());
     }
     return { el, spin, reset };
