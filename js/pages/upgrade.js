@@ -1,10 +1,11 @@
 /* Апгрейд: ставим скины (и/или монеты) против более дорогого предмета. */
 (function () {
   'use strict';
-  // шанс = ставка / цена цели × 0.9 — ровно как у Key-Drop и Cases.gg (10% преимущества);
-  // шанс от 1% до 75%: цели дешевле ставки × 1.2 не предлагаются, поэтому потолок не «срезает» RTP
-  const RTP = (App.UPGRADE_RTP = 0.9);
-  const MAX_CHANCE = (App.UPGRADE_MAX = 0.75);
+  // шанс = ставка / цена цели × 0.95: показанный шанс — настоящий, преимущество сайта 5%
+  // (как у казино: «красное» в рулетке — 48,6%, а не 50%). x2 → 47,5%, x5 → 19%, x10 → 9,5%.
+  // Шанс от 1% до 80%: цели дешевле ставки × 1.19 не предлагаются, поэтому потолок не «срезает» RTP
+  const RTP = (App.UPGRADE_RTP = 0.95);
+  const MAX_CHANCE = (App.UPGRADE_MAX = 0.8);
   const MIN_CHANCE = 0.01;
   const MIN_MULT = RTP / MAX_CHANCE;
   const MAX_ITEMS = 6;
@@ -21,7 +22,7 @@
     App.onLeave(() => (alive = false));
 
     root.innerHTML = `
-      ${App.pageHead('Апгрейд', 'Поставь скины или монеты и рискни ради более дорогого предмета. Шанс = ставка / цель × 90%.', 'rocket', '#2fd27a')}
+      ${App.pageHead('Апгрейд', `Поставь скины или монеты и рискни ради более дорогого предмета. Шанс = ставка / цель × ${Math.round(RTP * 100)}%.`, 'rocket', '#2fd27a')}
       <section class="up-stage">
         <div class="up-slot" id="upFrom"></div>
         <div class="up-wheel">
@@ -163,13 +164,24 @@
       App.$$('#upDir button').forEach((x) => x.classList.toggle('on', x === b));
       drawChance();
     };
+    // цель с ценой, ближайшей к ставке × множитель (а не первой дороже — иначе x2 превращался в x2.1)
+    const nearest = (want) => {
+      const cat = App.catalog();
+      const min = stake() * MIN_MULT - 1e-9;
+      let best = null;
+      for (const e of cat) {
+        if (e.price < min) continue;
+        if (!best || Math.abs(e.price - want) < Math.abs(best.price - want)) best = e;
+        else if (e.price > want) break;
+      }
+      return best || cat[cat.length - 1];
+    };
     App.$('#upMult').onclick = (e) => {
       const b = e.target.closest('button');
       if (!b || busy) return;
       if (!stake()) return App.toast('Сначала выберите предметы', 'error');
       const m = b.dataset.m === 'rnd' ? Math.round(App.rand(1.5, 20) * 10) / 10 : +b.dataset.m;
-      target = App.catalogNear(stake() * m, 0);
-      if (target.price < stake() * MIN_MULT) target = App.catalogNear(stake() * MIN_MULT * 1.001, 0);
+      target = nearest(Math.max(stake() * m, stake() * MIN_MULT));
       drawAll();
     };
 

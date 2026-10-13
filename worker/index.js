@@ -64,6 +64,8 @@ async function route(request, env) {
       if (!user) return json({ error: 'unauthorized' }, 401, headers);
       return json({ user }, 200, headers);
     }
+    case '/api/profile':
+      return profile(request, env, headers);
     case '/api/state':
       return state(request, env, headers);
     default:
@@ -260,6 +262,26 @@ function auth(request, env) {
   const h = request.headers.get('authorization') || '';
   const m = /^Bearer\s+(\S+)$/.exec(h);
   return m ? verify(m[1], env) : null;
+}
+
+/* ---------------- свежий профиль Steam ---------------- */
+
+// ник и аватар могли поменяться в Steam после входа: сайт спрашивает их при каждом заходе.
+// Ответ кэшируется в KV на час, чтобы не упираться в лимиты Steam.
+const PROFILE_TTL = 3600;
+async function profile(request, env, headers) {
+  const user = await auth(request, env);
+  if (!user) return json({ error: 'unauthorized' }, 401, headers);
+  const key = 'profile:' + user.sid;
+  if (env.STATE) {
+    const cached = await env.STATE.get(key);
+    if (cached) return json(JSON.parse(cached), 200, headers);
+  }
+  const p = await steamProfile(user.sid, env);
+  const out = { sid: user.sid, name: p.name, avatar: p.avatar };
+  // запасной ник «Steam 1234» не кэшируем: скорее всего Steam просто не ответил
+  if (env.STATE && p.avatar) await env.STATE.put(key, JSON.stringify(out), { expirationTtl: PROFILE_TTL });
+  return json(out, 200, headers);
 }
 
 /* ---------------- облачные сохранения ---------------- */

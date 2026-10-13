@@ -209,6 +209,21 @@ const tests = {
     const r = await call('/api/state', { headers: { authorization: 'Bearer ' + token } }, env);
     assert.equal(r.status, 501);
   },
+  async 'профиль Steam обновляется и кэшируется'() {
+    const env = baseEnv();
+    const rt = await startLogin(env);
+    const token = tokenFrom(await call(steamAnswer(rt), {}, env));
+    assert.equal((await call('/api/profile', {}, env)).status, 401);
+    const p = await (await call('/api/profile', { headers: { authorization: 'Bearer ' + token } }, env)).json();
+    assert.equal(p.sid, SID);
+    assert.equal(p.name, 'Тест <b>');
+    assert.equal(p.avatar, 'https://avatars.steamstatic.com/a_full.jpg');
+    assert.ok(env.STATE._m.has('profile:' + SID));
+    // второй запрос берётся из кэша, даже если Steam уже отвечает иначе
+    env.STATE._m.set('profile:' + SID, JSON.stringify({ sid: SID, name: 'Кэш', avatar: p.avatar }));
+    const p2 = await (await call('/api/profile', { headers: { authorization: 'Bearer ' + token } }, env)).json();
+    assert.equal(p2.name, 'Кэш');
+  },
   async 'без SESSION_SECRET сервер не выдаёт токены'() {
     const r = await call('/auth/steam?state=' + STATE + '&return=' + encodeURIComponent(SITE), {}, { ...baseEnv(), SESSION_SECRET: '' });
     assert.equal(r.status, 500);

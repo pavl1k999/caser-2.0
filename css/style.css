@@ -491,6 +491,9 @@ input:focus, select:focus { border-color: var(--accent); }
 .prof-nick { display: flex; align-items: center; gap: 8px; }
 .prof-nick input { font-size: 22px; font-weight: 700; background: transparent; border-color: transparent; padding: 4px 8px; margin-left: -8px; max-width: 320px; }
 .prof-nick input:hover, .prof-nick input:focus { border-color: var(--line); background: var(--bg2); }
+.prof-nick-steam { font-size: 22px; font-weight: 700; }
+.prof-nick .steam-ic { width: 14px; height: 14px; vertical-align: -2px; }
+.prof-ava.steam { cursor: default; }
 .prof-lvl { display: flex; align-items: center; gap: 10px; }
 .lvl { min-width: 32px; height: 32px; padding: 0 6px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; background: linear-gradient(135deg, #ffc93a, var(--accent2)); color: #1a1205; }
 .bar { flex: 1; max-width: 340px; height: 8px; border-radius: 8px; background: var(--panel3); overflow: hidden; }

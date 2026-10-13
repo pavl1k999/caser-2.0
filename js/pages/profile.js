@@ -25,11 +25,16 @@
       const inv = App.inventory();
       const invSum = inv.reduce((a, i) => a + i.price, 0);
       const s = st.stats;
+      // ник и аватар из Steam менять здесь нельзя — они обновляются при входе
+      const steamNick = App.auth.steamNick && App.auth.steamNick();
+      const steamAva = !!(App.session && App.session.avatar);
       root.innerHTML = `
         <section class="prof panel">
-          <div class="prof-ava" id="pfAva" title="${App.session && App.session.avatar ? 'Аватар Steam' : 'Сменить цвет'}">${App.myAvatar('xl')}</div>
+          <div class="prof-ava ${steamAva ? 'steam' : ''}" id="pfAva" title="${steamAva ? 'Аватар из Steam' : 'Сменить цвет'}">${App.myAvatar('xl')}</div>
           <div class="prof-main">
-            <div class="prof-nick"><input id="pfNick" maxlength="20" value="${App.esc(st.nick)}"><span class="muted small">✎</span></div>
+            <div class="prof-nick">${steamNick
+              ? `<b class="prof-nick-steam">${App.esc(st.nick)}</b><span class="muted small"><i class="steam-ic"></i> из Steam</span>`
+              : `<input id="pfNick" maxlength="20" value="${App.esc(st.nick)}"><span class="muted small">✎</span>`}</div>
             <div class="prof-lvl"><span class="lvl">${lv.lvl}</span><div class="bar"><i style="width:${(lv.cur / lv.next) * 100}%"></i></div><span class="muted small">${App.fmt(lv.cur)} / ${App.fmt(lv.next)} XP</span></div>
           </div>
           <div class="prof-bal"><span class="muted">Баланс</span>${App.coin(st.balance, 'lg')}<a class="btn btn-accent btn-sm" href="#/bonus">Получить монеты</a></div>
@@ -149,7 +154,7 @@
       const sortEl = App.$('#pfSort');
       if (sortEl) sortEl.onchange = (e) => { sort = e.target.value; draw(); };
       const nick = App.$('#pfNick');
-      nick.onchange = () => {
+      if (nick) nick.onchange = () => {
         const v = nick.value.trim().slice(0, 20);
         if (v) {
           App.state.nick = v;
@@ -162,6 +167,7 @@
       const lo = App.$('#pfLogout');
       if (lo) lo.onclick = () => { App.auth.logout(); draw(); };
       App.$('#pfAva').onclick = () => {
+        if (App.session && App.session.avatar) return;
         App.state.avatar = (App.state.avatar + 47) % 360;
         App.save();
         draw();

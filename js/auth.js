@@ -68,9 +68,9 @@
       st = legacy && (legacy.stats.opened || legacy.items.length) ? legacy : App.defaults();
       App.writeState(guestKey, App.defaults());
       st.nick = session.name ? session.name.slice(0, 20) : `Игрок ${session.sid.slice(-4)}`;
-    } else if (session.name && session.verified) {
-      st.nick = session.name.slice(0, 20);
     }
+    // ник из Steam всегда главнее сохранённого: сменили ник в Steam — он меняется и здесь
+    if (session.name) st.nick = session.name.slice(0, 20);
     st.steam = { sid: session.sid, since: st.steam ? st.steam.since : Date.now() };
     App.setSession(session);
     App.loadState(st);
@@ -191,6 +191,35 @@
     App.emit('sync');
   };
 
+  // ник и аватар — всегда из Steam (нужен сервер входа: без него Steam их не отдаёт)
+  const steamNick = () => (App.session && App.session.name ? App.session.name.slice(0, 20) : '');
+  function applySteam() {
+    const n = steamNick();
+    if (n && App.state.nick !== n) {
+      App.state.nick = n;
+      App.save();
+    }
+  }
+  auth.steamNick = steamNick;
+
+  async function refreshProfile() {
+    if (!cloudOn()) return;
+    try {
+      const res = await fetch(`${api()}/api/profile`, { headers: { authorization: `Bearer ${App.session.token}` } });
+      if (res.status === 401) return expired();
+      if (!res.ok) return;
+      const p = await res.json();
+      const s = App.session;
+      if (!s || p.sid !== s.sid) return;
+      const name = p.name || s.name;
+      const avatar = p.avatar || s.avatar;
+      if (name === s.name && avatar === s.avatar) return;
+      App.setSession({ ...s, name, avatar });
+      applySteam();
+      App.emit('sync');
+    } catch (e) { /* сервер недоступен — остаются данные из токена */ }
+  }
+
   async function pull() {
     if (!cloudOn()) return;
     setSync('saving');
@@ -201,6 +230,7 @@
       if (status !== 200) throw new Error('HTTP ' + status);
       if (data.state && data.updatedAt > (App.state.updatedAt || 0)) {
         App.loadState(data.state);
+        applySteam();
         App.toast('Загружено сохранение из облака', 'success');
         setSync('idle');
       } else {
@@ -223,6 +253,7 @@
       if (status === 501) return setSync('off', 'Облачные сохранения не настроены на сервере');
       if (status === 409 && data && data.state) {
         App.loadState(data.state);
+        applySteam();
         App.toast('Загружено более новое сохранение с другого устройства', 'success');
       } else if (status !== 200) throw new Error('HTTP ' + status);
       setSync('idle');
@@ -259,6 +290,6 @@
       App.loadState(App.readState(App.stateKey()) || App.defaults(), { silent: true });
     }
     handleDirectReturn();
-    if (cloudOn()) pull();
+    if (cloudOn()) pull().then(refreshProfile);
   };
 })();
