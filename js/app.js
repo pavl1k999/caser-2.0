@@ -72,13 +72,31 @@
   function drawFeed() {
     $('#feedList').innerHTML = App.feed.filter(passes).slice(0, 24).map(feedCard).join('');
   }
+  // въезд новой карточки: лента сдвигается transform-ом (композитор), новая карточка проявляется.
+  // Несколько дропов подряд (открытие x5) складываются в один общий сдвиг.
+  const reducedMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let feedAnim = null, feedShift = 0, feedGap = null;
+  function slideFeed(list) {
+    let cur = 0;
+    if (feedAnim && feedAnim.playState === 'running') {
+      cur = new DOMMatrixReadOnly(getComputedStyle(list).transform).m41 || 0;
+      feedAnim.cancel();
+    }
+    feedAnim = list.animate([{ transform: `translateX(${cur - feedShift}px)` }, { transform: 'none' }], { duration: 500, easing: 'ease' });
+    feedShift = 0;
+  }
   App.on('feed', (e) => {
     if (!passes(e)) return;
     const list = $('#feedList');
     const el = App.el(feedCard(e));
-    el.classList.add('new');
     list.prepend(el);
     while (list.children.length > 24) list.lastElementChild.remove();
+    // лента под шапкой уже не видна — без анимации
+    if (reducedMotion || !list.animate || scrollY > 200) return;
+    if (feedGap == null) feedGap = parseFloat(getComputedStyle(list).columnGap) || 0;
+    if (!feedShift) queueMicrotask(() => slideFeed(list));
+    feedShift += el.offsetWidth + feedGap;
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease' });
   });
   function botLoop() {
     // редкие дропы дорогих вещей для «топа»
