@@ -45,23 +45,37 @@
     if (hl) hl.onclick = () => App.auth.login();
 
     let sort = 'def';
+    // секции вне экрана не рисуются (content-visibility), а до первой отрисовки занимают оценочную высоту --ch:
+    // столбцы и высота карточки — как у .cgrid в css, чтобы полоса прокрутки не прыгала
+    const sizer = () => {
+      const mob = innerWidth <= 640;
+      const gap = mob ? 10 : 14;
+      const W = App.$('#caseGroups').clientWidth || innerWidth - 40;
+      const cols = mob ? 2 : Math.max(1, Math.floor((W + gap) / (200 + gap)));
+      const cardH = ((W - (cols - 1) * gap) / cols - 24) * 190 / 240 + 115;
+      return (n, head = 48) => {
+        const rows = Math.ceil(n / cols);
+        return Math.round(head + rows * cardH + (rows - 1) * gap);
+      };
+    };
     const draw = () => {
       const q = App.$('#caseSearch').value.trim().toLowerCase();
       const afford = App.$('#caseAfford').checked;
       const ok = (c) => (!q || c.name.toLowerCase().includes(q)) && (!afford || (c.free ? App.freeStatus(c).ok : c.price <= App.state.balance));
+      const est = sizer();
       let html = '';
       if (sort === 'def') {
         for (const s of sections()) {
           const list = App.cases.filter((c) => s.filter(c) && ok(c));
           if (!list.length) continue;
-          html += `<section class="series" style="--sc:${s.color}">
+          html += `<section class="series" style="--sc:${s.color};--ch:${est(list.length)}px">
             <div class="series-head"><div><h2><i><svg viewBox="0 0 64 64">${App.art.icon(s.emblem)}</svg></i>${App.esc(s.name)} <em>${list.length}</em></h2></div>
             <p>${App.esc(s.desc || '')}</p></div>
             <div class="cgrid">${list.map(App.caseCard).join('')}</div></section>`;
         }
       } else {
         const list = App.cases.filter(ok).sort((a, b) => (sort === 'asc' ? a.price - b.price : b.price - a.price));
-        html = `<section class="series"><div class="cgrid">${list.map(App.caseCard).join('')}</div></section>`;
+        html = `<section class="series" style="--ch:${est(list.length, 0)}px"><div class="cgrid">${list.map(App.caseCard).join('')}</div></section>`;
       }
       App.$('#caseGroups').innerHTML = html || App.emptyState('Ничего не найдено', 'eye');
     };
