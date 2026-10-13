@@ -5,22 +5,132 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CASESIM — симулятор кейсов CS2</title>
   <meta name="description" content="Симулятор открытия кейсов CS2 на виртуальную валюту: кейсы, апгрейды, контракты и батлы. Без реальных денег.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffb400'/%3E%3Cpath d='M9 12h14v11H9z' fill='%23151722'/%3E%3Cpath d='M8 9h16v4H8z' fill='%23151722'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#08090f">
+  <meta name="application-name" content="CASESIM">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="CASESIM — симулятор кейсов CS2">
+  <meta property="og:description" content="Открывай кейсы, апгрейди скины, собирай контракты и сражайся в батлах. Только виртуальные монеты.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='l' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffd23f'/%3E%3Cstop offset='1' stop-color='%23ff9500'/%3E%3C/linearGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ff8400'/%3E%3Cstop offset='1' stop-color='%23d9480f'/%3E%3C/linearGradient%3E%3ClinearGradient id='d' x1='0' y1='1' x2='0' y2='0'%3E%3Cstop offset='0' stop-color='%23ffb02e'/%3E%3Cstop offset='1' stop-color='%23b93a06'/%3E%3C/linearGradient%3E%3CradialGradient id='i' cx='.5' cy='.55' r='.6'%3E%3Cstop offset='0' stop-color='%23fff6c8'/%3E%3Cstop offset='.4' stop-color='%23ffb000'/%3E%3Cstop offset='1' stop-color='%235a1c00'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='%23151826'/%3E%3Cg transform='translate(1.6 2.2) scale(.95)'%3E%3Cpath d='M24 16L36.1 23L40.1 10L28 3Z' fill='url(%23d)'/%3E%3Cpath d='M24 16L36.1 23L24 30L11.9 23Z' fill='url(%23i)'/%3E%3Cpath d='M21 1.5C21.7 9.2 23 11.6 28.5 13C23 14.4 21.7 16.8 21 25C20.3 16.8 19 14.4 13.5 13C19 11.6 20.3 9.2 21 1.5Z' fill='%23fffbe6'/%3E%3Cpath d='M11.9 23L24 30V44L11.9 37Z' fill='url(%23l)'/%3E%3Cpath d='M24 30L36.1 23V37L24 44Z' fill='url(%23r)'/%3E%3Cpath d='M11.9 23L24 30L36.1 23' fill='none' stroke='%23fff3cc' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/brand.css">
 </head>
 <body>
+  <!-- спрайт: логотип, надпись и иконки меню (градиенты общие для всех <use>) -->
+  <svg class="sprite" aria-hidden="true" width="0" height="0" focusable="false">
+    <defs>
+      <linearGradient id="lg-l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff9500"/></linearGradient>
+      <linearGradient id="lg-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8400"/><stop offset="1" stop-color="#d9480f"/></linearGradient>
+      <linearGradient id="lg-lidg" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffb02e"/><stop offset="1" stop-color="#b93a06"/></linearGradient>
+      <radialGradient id="lg-ing" cx=".5" cy=".55" r=".6"><stop offset="0" stop-color="#fff6c8"/><stop offset=".4" stop-color="#ffb000"/><stop offset="1" stop-color="#5a1c00"/></radialGradient>
+      <radialGradient id="lg-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffc83a" stop-opacity=".5"/><stop offset="1" stop-color="#ff8a00" stop-opacity="0"/></radialGradient>
+      <linearGradient id="lg-w1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#c9cee3"/></linearGradient>
+      <linearGradient id="lg-w2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd84a"/><stop offset="1" stop-color="#ff7a00"/></linearGradient>
+      <linearGradient id="ng-hot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe066"/><stop offset="1" stop-color="#ff7a00"/></linearGradient>
+    </defs>
+    <!-- эмблема: открытый кейс со вспышкой; слои отдельно, чтобы крышка и звезда двигались при наведении -->
+    <symbol id="lg-in" viewBox="0 0 48 48">
+      <ellipse cx="23" cy="20" rx="17" ry="15" fill="url(#lg-glow)"/>
+      <path d="M24 16L36.1 23L24 30L11.9 23Z" fill="url(#lg-ing)"/>
+    </symbol>
+    <symbol id="lg-lid" viewBox="0 0 48 48">
+      <path d="M24 16L36.1 23L40.1 10L28 3Z" fill="url(#lg-lidg)"/>
+      <path d="M28 3L40.1 10L39.6 11.6L27.5 4.6Z" fill="#ffe6a0"/>
+    </symbol>
+    <symbol id="lg-star" viewBox="0 0 48 48">
+      <path d="M21 1.5C21.7 9.2 23 11.6 28.5 13C23 14.4 21.7 16.8 21 25C20.3 16.8 19 14.4 13.5 13C19 11.6 20.3 9.2 21 1.5Z" fill="#fffbe6"/>
+      <path d="M9 9.5C9.3 11.6 9.8 12.2 11.5 12.5C9.8 12.8 9.3 13.4 9 15.5C8.7 13.4 8.2 12.8 6.5 12.5C8.2 12.2 8.7 11.6 9 9.5Z" fill="#ffe27a"/>
+      <circle cx="14.5" cy="4.5" r="1.1" fill="#ffe27a"/>
+    </symbol>
+    <symbol id="lg-front" viewBox="0 0 48 48">
+      <path d="M11.9 23L24 30V44L11.9 37Z" fill="url(#lg-l)"/>
+      <path d="M24 30L36.1 23V37L24 44Z" fill="url(#lg-r)"/>
+      <path d="M11.9 29.5L24 36.5L36.1 29.5V32.5L24 39.5L11.9 32.5Z" fill="#5a1c00" opacity=".38"/>
+      <path d="M22.2 34.6L24 35.6L25.8 34.6V39.4L24 40.4L22.2 39.4Z" fill="#fff1c4"/>
+      <path d="M11.9 23L24 30L36.1 23" fill="none" stroke="#fff3cc" stroke-width="1.1" stroke-linejoin="round"/>
+      <path d="M24 30V44" stroke="#ffe08a" stroke-opacity=".55" stroke-width=".8"/>
+    </symbol>
+    <!-- надпись CASESIM: свои рубленые буквы с наклоном и объёмной тенью -->
+    <symbol id="lg-case" viewBox="0 0 129 23">
+      <g transform="translate(4.3 0) skewX(-12)">
+        <path d="M4 0H16V5H6.5L5 6.5V13.5L6.5 15H16V20H4L0 16V4Z"/>
+        <path fill-rule="evenodd" transform="translate(19 0)" d="M4 0H12L16 4V20H11V14.5H5V20H0V4ZM6.5 5H9.5L11 6.5V9.5H5V6.5Z"/>
+        <path transform="translate(38 0)" d="M4 0H16V5H5V7.5H12L16 11.5V16L12 20H0V15H11V12.5H4L0 8.5V4Z"/>
+        <path transform="translate(57 0)" d="M4 0H15V5H5V7.5H13V12.5H5V15H15V20H4L0 16V4Z"/>
+      </g>
+    </symbol>
+    <symbol id="lg-sim" viewBox="0 0 129 23">
+      <g transform="translate(4.3 0) skewX(-12)">
+        <path transform="translate(75 0)" d="M4 0H16V5H5V7.5H12L16 11.5V16L12 20H0V15H11V12.5H4L0 8.5V4Z"/>
+        <path transform="translate(94 0)" d="M0 0H5V20H0Z"/>
+        <path transform="translate(102 0)" d="M0 20V4L4 0H7.5L11 3.5L14.5 0H18L22 4V20H17V5.5L11 11.5L5 5.5V20Z"/>
+      </g>
+    </symbol>
+    <symbol id="lg-word" viewBox="0 0 129 23">
+      <use href="#lg-case" y="2.4" fill="#2c3149"/>
+      <use href="#lg-sim" y="2.4" fill="#8f3300"/>
+      <use href="#lg-case" fill="url(#lg-w1)"/>
+      <use href="#lg-sim" fill="url(#lg-w2)"/>
+    </symbol>
+    <!-- иконки меню: --n1 основной слой, --n2/--n2o подложка -->
+    <symbol id="i-cases" viewBox="0 0 24 24">
+      <path style="fill:var(--n2,currentColor);opacity:var(--n2o,.4)" d="M12.5 15l6.9-4v8.1l-6.9 4ZM12 7.3l6.1 3.6-6.1 3.5-6.1-3.5Z"/>
+      <g style="fill:var(--n1,currentColor)">
+        <path d="M4.6 11l6.9 4v8.1l-6.9-4Z"/>
+        <path d="M12.7 6.3l6.7 3.9 2.2-6.4-6.7-3.9Z"/>
+        <path d="M6.8 .9l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9Z"/>
+      </g>
+    </symbol>
+    <symbol id="i-up" viewBox="0 0 24 24">
+      <path style="fill:var(--n2,currentColor);opacity:var(--n2o,.4)" d="M3.5 19.2L12 12l8.5 7.2v3.6L12 15.6l-8.5 7.2Z"/>
+      <path style="fill:var(--n1,currentColor)" d="M12 1.5l7.8 8.3H15v5.4H9V9.8H4.2Z"/>
+    </symbol>
+    <symbol id="i-ct" viewBox="0 0 24 24">
+      <g style="fill:var(--n2,currentColor);opacity:var(--n2o,.4)">
+        <rect x="2.6" y="3.6" width="10.5" height="14.5" rx="2" transform="rotate(-15 7.85 10.85)"/>
+        <rect x="10.9" y="3.6" width="10.5" height="14.5" rx="2" transform="rotate(15 16.15 10.85)"/>
+      </g>
+      <path style="fill:var(--n1,currentColor)" fill-rule="evenodd" d="M8.2 6.5h7.6a2.2 2.2 0 0 1 2.2 2.2v11.1a2.2 2.2 0 0 1-2.2 2.2H8.2A2.2 2.2 0 0 1 6 19.8V8.7a2.2 2.2 0 0 1 2.2-2.2ZM12 10.4l1.03 2.68 2.87.15-2.23 1.81.74 2.78L12 16.26l-2.41 1.56.74-2.78-2.23-1.81 2.87-.15Z"/>
+    </symbol>
+    <symbol id="i-bt" viewBox="0 0 24 24">
+      <g style="fill:var(--n2,currentColor);opacity:var(--n2o,.4)" transform="rotate(-45 12 12)">
+        <path d="M12 1.2l2.1 2.6v11.4H9.9V3.8Z"/><rect x="7.2" y="15" width="9.6" height="2.6" rx="1.3"/><rect x="10.8" y="17.4" width="2.4" height="3.6"/><circle cx="12" cy="22" r="1.7"/>
+      </g>
+      <g style="fill:var(--n1,currentColor)" transform="rotate(45 12 12)">
+        <path d="M12 1.2l2.1 2.6v11.4H9.9V3.8Z"/><rect x="7.2" y="15" width="9.6" height="2.6" rx="1.3"/><rect x="10.8" y="17.4" width="2.4" height="3.6"/><circle cx="12" cy="22" r="1.7"/>
+      </g>
+    </symbol>
+    <symbol id="i-bonus" viewBox="0 0 24 24">
+      <rect style="fill:var(--n2,currentColor);opacity:var(--n2o,.4)" x="4" y="11.6" width="16" height="10" rx="2"/>
+      <path style="fill:var(--n1,currentColor)" d="M4 7.4h16a1.6 1.6 0 0 1 1.6 1.6v1.4a1.6 1.6 0 0 1-1.6 1.6H4a1.6 1.6 0 0 1-1.6-1.6V9A1.6 1.6 0 0 1 4 7.4ZM10.5 12h3v9.6h-3ZM12 7.2C10.6 3.6 6.8 2.2 5.7 4.1 4.7 5.9 7.4 7.4 12 7.4ZM12 7.2c1.4-3.6 5.2-5 6.3-3.1 1 1.8-1.7 3.3-6.3 3.3Z"/>
+    </symbol>
+    <symbol id="i-user" viewBox="0 0 24 24">
+      <path style="fill:var(--n2,currentColor);opacity:var(--n2o,.4)" d="M3.4 22.4c0-4.8 3.9-8 8.6-8s8.6 3.2 8.6 8Z"/>
+      <g style="fill:var(--n1,currentColor)">
+        <circle cx="12" cy="9.6" r="4"/>
+        <path d="M5.5 11C5.5 6.2 8.3 2.6 12 2.6s6.5 3.6 6.5 8.4h-1.9C16.6 7.4 14.6 4.5 12 4.5S7.4 7.4 7.4 11Z"/>
+        <rect x="4.3" y="9" width="3.2" height="5" rx="1.4"/><rect x="16.5" y="9" width="3.2" height="5" rx="1.4"/>
+      </g>
+    </symbol>
+    <symbol id="i-go" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M9.2 4.6L16.6 12l-7.4 7.4-2.1-2.1L12.4 12 7.1 6.7Z"/>
+    </symbol>
+  </svg>
+
   <header class="hdr">
     <div class="hdr-in">
-      <a class="logo" href="#/"><i class="logo-ic"></i><b id="brand">CASESIM</b></a>
+      <a class="logo" id="brand" href="#/" aria-label="CASESIM — на главную">
+        <svg class="logo-mark" viewBox="5 0 37 45" aria-hidden="true"><use href="#lg-in" width="48" height="48"/><g class="lg-lid"><use href="#lg-lid" width="48" height="48"/></g><g class="lg-star"><use href="#lg-star" width="48" height="48"/></g><use href="#lg-front" width="48" height="48"/></svg>
+        <svg class="logo-word" viewBox="0 0 129 23" aria-hidden="true"><use href="#lg-word"/></svg>
+      </a>
       <nav class="nav">
-        <a href="#/" data-nav="/"><i class="ni ni-cases"></i>Кейсы</a>
-        <a href="#/upgrade" data-nav="/upgrade"><i class="ni ni-up"></i>Апгрейд</a>
-        <a href="#/contracts" data-nav="/contracts"><i class="ni ni-ct"></i>Контракты</a>
-        <a href="#/battles" data-nav="/battles"><i class="ni ni-bt"></i>Батлы</a>
-        <a href="#/bonus" data-nav="/bonus"><i class="ni ni-bonus"></i>Бонусы</a>
+        <a href="#/" data-nav="/"><svg class="nic" aria-hidden="true"><use href="#i-cases"/></svg><span>Кейсы</span></a>
+        <a href="#/upgrade" data-nav="/upgrade"><svg class="nic" aria-hidden="true"><use href="#i-up"/></svg><span>Апгрейд</span></a>
+        <a href="#/contracts" data-nav="/contracts"><svg class="nic" aria-hidden="true"><use href="#i-ct"/></svg><span>Контракты</span></a>
+        <a href="#/battles" data-nav="/battles"><svg class="nic" aria-hidden="true"><use href="#i-bt"/></svg><span>Батлы</span></a>
+        <a href="#/bonus" data-nav="/bonus"><svg class="nic" aria-hidden="true"><use href="#i-bonus"/></svg><span>Бонусы</span></a>
       </nav>
       <div class="hdr-right">
         <span class="online"><i></i><b id="online">—</b> онлайн</span>
@@ -49,8 +159,11 @@
 
   <footer class="ftr">
     <div class="ftr-in">
-      <div>
-        <a class="logo" href="#/"><i class="logo-ic"></i><b>CASE<span>SIM</span></b></a>
+      <div class="ftr-brand">
+        <a class="logo" href="#/" aria-label="CASESIM — на главную">
+          <svg class="logo-mark" viewBox="5 0 37 45" aria-hidden="true"><use href="#lg-in" width="48" height="48"/><g class="lg-lid"><use href="#lg-lid" width="48" height="48"/></g><g class="lg-star"><use href="#lg-star" width="48" height="48"/></g><use href="#lg-front" width="48" height="48"/></svg>
+          <svg class="logo-word" viewBox="0 0 129 23" aria-hidden="true"><use href="#lg-word"/></svg>
+        </a>
         <p class="muted small">Симулятор открытия кейсов CS2. Вся валюта виртуальная: её нельзя купить, продать или вывести. Сайт не связан с Valve, Steam и сторонними кейс-сайтами.</p>
       </div>
       <div class="ftr-links">
@@ -64,11 +177,11 @@
   </footer>
 
   <nav class="mnav">
-    <a href="#/" data-nav="/"><i class="ni ni-cases"></i>Кейсы</a>
-    <a href="#/upgrade" data-nav="/upgrade"><i class="ni ni-up"></i>Апгрейд</a>
-    <a href="#/battles" data-nav="/battles"><i class="ni ni-bt"></i>Батлы</a>
-    <a href="#/contracts" data-nav="/contracts"><i class="ni ni-ct"></i>Контракты</a>
-    <a href="#/profile" data-nav="/profile"><i class="ni ni-user"></i>Профиль</a>
+    <a href="#/upgrade" data-nav="/upgrade"><svg class="nic" aria-hidden="true"><use href="#i-up"/></svg><span>Апгрейд</span></a>
+    <a href="#/battles" data-nav="/battles"><svg class="nic" aria-hidden="true"><use href="#i-bt"/></svg><span>Батлы</span></a>
+    <a class="mn-main" href="#/" data-nav="/"><span class="mn-orb"><svg class="nic" aria-hidden="true"><use href="#i-cases"/></svg></span><span>Кейсы</span></a>
+    <a href="#/contracts" data-nav="/contracts"><svg class="nic" aria-hidden="true"><use href="#i-ct"/></svg><span>Контракты</span></a>
+    <a href="#/profile" data-nav="/profile"><svg class="nic" aria-hidden="true"><use href="#i-user"/></svg><span>Профиль</span></a>
   </nav>
 
   <script src="js/config.js"></script>

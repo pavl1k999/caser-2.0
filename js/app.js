@@ -99,7 +99,7 @@
   }
 
   function init() {
-    $('#brand').innerHTML = `${App.config.brand}<span>${App.config.brandAccent}</span>`;
+    $('#brand').setAttribute('aria-label', `${App.config.brand}${App.config.brandAccent} — на главную`); // логотип — SVG из спрайта, его не трогаем
     document.title = `${App.config.brand}${App.config.brandAccent} — симулятор кейсов CS2`;
     $('#steamBtn').onclick = (e) => {
       e.preventDefault();
