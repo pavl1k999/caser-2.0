@@ -77,7 +77,13 @@
     draw();
   });
 
+  // плитка режима: значок из спрайта меню, крупная эмблема фоном и стрелка
   function tile(cls, href, icon, title, sub) {
-    return `<a class="mode-tile mt-${cls}" href="${href}"><svg class="mt-ic" viewBox="0 0 64 64">${App.art.icon(icon)}</svg><b>${title}</b><span>${sub}</span></a>`;
+    const sym = { upgrade: 'i-up', battle: 'i-bt', contract: 'i-ct', bonus: 'i-bonus' }[cls] || 'i-cases';
+    return `<a class="mode-tile mt-${cls}" href="${href}">
+      <svg class="mt-bg" viewBox="0 0 64 64" aria-hidden="true">${App.art.icon(icon)}</svg>
+      <span class="mt-badge"><svg class="nic" aria-hidden="true"><use href="#${sym}"/></svg></span>
+      <span class="mt-go"><svg aria-hidden="true"><use href="#i-go"/></svg></span>
+      <b>${title}</b><span class="mt-sub">${sub}</span></a>`;
   }
 })();

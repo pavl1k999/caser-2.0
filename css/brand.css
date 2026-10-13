@@ -1,0 +1,158 @@
+/* Фирменный стиль: логотип, иконки меню, монета, плитки режимов.
+   Подключается после style.css и переопределяет его. Анимации — только transform/opacity. */
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+
+/* ---------- логотип ---------- */
+.logo { display: inline-flex; align-items: center; gap: 9px; flex: none; line-height: 0; font: inherit; }
+.logo-mark { width: 31px; height: 38px; flex: none; overflow: visible; transition: transform .2s; }
+.logo-word { width: 107px; height: 19px; flex: none; }
+.lg-lid, .lg-star { transform-box: fill-box; transition: transform .4s cubic-bezier(.3, 1.6, .5, 1); }
+.lg-lid { transform-origin: 37% 82%; }
+.lg-star { transform-origin: 50% 90%; }
+.logo:hover .lg-lid { transform: rotate(9deg); }
+.logo:hover .lg-star { transform: translateY(-7%) scale(1.14); }
+.logo:active .logo-mark { transform: scale(.92); }
+
+/* ---------- шапка ---------- */
+.hdr { backdrop-filter: none; -webkit-backdrop-filter: none; background: #0b0d15f7; }
+.hdr::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, #ffb40040 22%, #ff6a0040 50%, #7c5cff30 78%, transparent);
+}
+
+/* ---------- меню ---------- */
+.nav { align-self: stretch; gap: 2px; }
+.nav a {
+  position: relative; isolation: isolate; gap: 9px; padding: 0 14px; border-radius: 0;
+  background: none; color: var(--muted); font-weight: 600; font-size: 14.5px; transition: none;
+}
+.nav a::before {
+  content: ''; position: absolute; inset: 13px 1px; border-radius: 12px; z-index: -1;
+  background: #ffffff0c; opacity: 0; transition: opacity .18s;
+}
+.nav a::after {
+  content: ''; position: absolute; left: 14px; right: 14px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0;
+  background: linear-gradient(90deg, #ffd23f, #ff6a00); box-shadow: 0 0 14px #ff9a00b0;
+  transform: scaleX(0); transition: transform .25s cubic-bezier(.2, .8, .2, 1);
+}
+.nav a:hover { color: var(--text); background: none; }
+.nav a:hover::before { opacity: 1; }
+.nav a.on { color: #fff; background: none; }
+.nav a.on::before { opacity: 1; background: radial-gradient(90% 110% at 50% 115%, #ffb40038, transparent 70%), #ffffff09; }
+.nav a.on::after { transform: scaleX(1); }
+
+/* иконка меню: два слоя, цвета через --n1 / --n2 / --n2o */
+.nic { width: 22px; height: 22px; flex: none; transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+.nav a:hover .nic { transform: translateY(-1px) rotate(-8deg) scale(1.12); }
+.nav a:hover .nic, .nav a.on .nic, .mnav a.on .nic { --n1: url(#ng-hot); --n2: #ffb400; --n2o: .42; }
+.nav a:active .nic, .mnav a:active .nic { transform: scale(.88); }
+
+/* ---------- монета ---------- */
+.coin-ic {
+  border-radius: 50%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3b0'/%3E%3Cstop offset='.45' stop-color='%23ffc21a'/%3E%3Cstop offset='1' stop-color='%23e46a00'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23f08a00'/%3E%3Cstop offset='1' stop-color='%23ffcf3a'/%3E%3C/linearGradient%3E%3ClinearGradient id='c' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fffbe6'/%3E%3Cstop offset='1' stop-color='%23ffd84a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='16' fill='%237a3000'/%3E%3Ccircle cx='16' cy='16' r='14.7' fill='url(%23a)'/%3E%3Ccircle cx='16' cy='16' r='10.9' fill='%23a84200'/%3E%3Ccircle cx='16' cy='16.6' r='10.4' fill='url(%23b)'/%3E%3Cpath d='M16.00 9.40L18.06 14.57L23.61 14.93L19.33 18.48L20.70 23.87L16.00 20.90L11.30 23.87L12.67 18.48L8.39 14.93L13.94 14.57Z' fill='%23a84200'/%3E%3Cpath d='M16.00 8.20L18.06 13.37L23.61 13.73L19.33 17.28L20.70 22.67L16.00 19.70L11.30 22.67L12.67 17.28L8.39 13.73L13.94 13.37Z' fill='url(%23c)'/%3E%3Cpath d='M5.2 13.2A11.4 11.4 0 0 1 14 4.9' fill='none' stroke='%23fff' stroke-opacity='.75' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  box-shadow: 0 0 7px #ffb40045;
+}
+.coin.lg .coin-ic { box-shadow: 0 0 12px #ffb40060; }
+.btn-accent .coin-ic, .ccard:hover .cc-price .coin-ic { box-shadow: 0 0 0 1px #00000026; }
+
+/* ---------- плитки режимов на главной ---------- */
+.mode-tile {
+  position: relative; overflow: hidden; isolation: isolate; min-height: 150px; padding: 18px 18px 16px; border-radius: 20px;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 3px;
+  border: 1px solid color-mix(in srgb, var(--mc) 28%, #ffffff0d);
+  background:
+    radial-gradient(120% 95% at 100% 0%, color-mix(in srgb, var(--mc) 36%, transparent), transparent 62%),
+    repeating-linear-gradient(-55deg, #ffffff05 0 2px, transparent 2px 14px),
+    linear-gradient(160deg, color-mix(in srgb, var(--mc) 15%, #141726), #0d0f1a 78%);
+  box-shadow: inset 0 1px 0 #ffffff12;
+  transition: transform .25s cubic-bezier(.2, .8, .2, 1);
+}
+.mode-tile::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mc) 75%, transparent), inset 0 -40px 50px -30px color-mix(in srgb, var(--mc) 45%, transparent);
+  opacity: 0; transition: opacity .25s;
+}
+.mode-tile:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--mc) 28%, #ffffff0d); }
+.mode-tile:hover::after { opacity: 1; }
+.mode-tile .mt-bg {
+  position: absolute; right: -24px; top: -18px; width: 138px; height: 138px; z-index: -1;
+  color: var(--mc); opacity: .17; transform: rotate(-14deg);
+  transition: transform .45s cubic-bezier(.2, .8, .2, 1), opacity .3s;
+}
+.mode-tile:hover .mt-bg { transform: rotate(-3deg) scale(1.08); opacity: .24; }
+.mode-tile .mt-badge {
+  position: absolute; left: 18px; top: 18px; width: 50px; height: 50px; border-radius: 16px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--mc) 62%, #fff), var(--mc) 52%, color-mix(in srgb, var(--mc) 62%, #000));
+  box-shadow: 0 10px 24px -8px var(--mc), inset 0 1px 0 #ffffff60, inset 0 -3px 0 #00000030;
+  transition: transform .35s cubic-bezier(.3, 1.6, .5, 1);
+}
+.mode-tile .mt-badge .nic { width: 30px; height: 30px; --n2o: .5; }
+.mode-tile:hover .mt-badge { transform: rotate(-8deg) scale(1.07); }
+.mt-bonus .mt-badge, .mt-upgrade .mt-badge { color: #1a1205; }
+.mt-upgrade .mt-badge { color: #052414; }
+.mode-tile .mt-go {
+  position: absolute; right: 16px; bottom: 16px; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff; font-size: 0;
+  background: color-mix(in srgb, var(--mc) 22%, #ffffff0a); box-shadow: inset 0 0 0 1px #ffffff14;
+  transition: transform .25s cubic-bezier(.2, .8, .2, 1);
+}
+.mode-tile .mt-go svg { width: 16px; height: 16px; }
+.mode-tile:hover .mt-go { transform: translateX(4px); }
+.mode-tile b { font: 800 18px/1.15 var(--display); letter-spacing: -.2px; }
+.mode-tile .mt-sub { color: #c9cde0; font-size: 13px; padding-right: 38px; }
+
+/* ---------- подвал ---------- */
+.ftr-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.ftr-brand p { margin: 0; max-width: 56ch; }
+.ftr .logo-mark { width: 28px; height: 34px; }
+.ftr .logo-word { width: 96px; height: 17px; }
+
+/* ---------- адаптив ---------- */
+@media (max-width: 1180px) {
+  .nav a { padding: 0 10px; }
+  .nav a::after { left: 10px; right: 10px; }
+}
+@media (max-width: 980px) {
+  .mode-tile { min-height: 150px; }
+  .mnav {
+    backdrop-filter: none; -webkit-backdrop-filter: none; background: #0b0d15; align-items: end;
+    border-top: 1px solid var(--line); box-shadow: 0 -14px 30px -12px #000d;
+    padding: 4px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .mnav a { position: relative; gap: 3px; padding: 7px 0 2px; font-size: 10.5px; font-weight: 600; color: var(--muted); }
+  .mnav a .nic { width: 24px; height: 24px; }
+  .mnav a.on { color: #ffcf4d; }
+  .mnav a::before {
+    content: ''; position: absolute; top: -5px; left: 50%; width: 28px; margin-left: -14px; height: 3px; border-radius: 0 0 3px 3px;
+    background: linear-gradient(90deg, #ffd23f, #ff6a00); box-shadow: 0 0 10px #ff9a00a0;
+    transform: scaleX(0); transition: transform .25s cubic-bezier(.2, .8, .2, 1);
+  }
+  .mnav a.on::before { transform: scaleX(1); }
+  /* центральная кнопка «Кейсы» */
+  .mnav .mn-main::before { display: none; }
+  .mn-orb {
+    width: 52px; height: 52px; margin-top: -24px; border-radius: 18px; display: grid; place-items: center;
+    color: #2a1300; background: linear-gradient(160deg, #ffe066, #ffb400 45%, #ff6a00);
+    box-shadow: 0 0 0 5px #0b0d15, 0 12px 22px -8px #ff8a00, inset 0 1px 0 #fff8, inset 0 -3px 0 #a3400040;
+    transition: transform .3s cubic-bezier(.3, 1.6, .5, 1);
+  }
+  .mn-orb .nic { width: 28px; height: 28px; }
+  .mnav .mn-main.on .nic { --n1: currentColor; --n2: currentColor; --n2o: .45; }
+  .mnav .mn-main:active .mn-orb { transform: scale(.92); }
+  .mnav .mn-main:active .nic { transform: none; }
+}
+@media (max-width: 640px) {
+  .logo { gap: 7px; }
+  .logo-mark { width: 27px; height: 33px; }
+  .logo-word { width: 90px; height: 16px; }
+  .mode-tile { min-height: 132px; padding: 14px 14px 12px; border-radius: 16px; }
+  .mode-tile .mt-badge { left: 14px; top: 14px; width: 40px; height: 40px; border-radius: 13px; }
+  .mode-tile .mt-badge .nic { width: 23px; height: 23px; }
+  .mode-tile .mt-bg { width: 104px; height: 104px; right: -22px; top: -16px; }
+  .mode-tile .mt-go { display: none; }
+  .mode-tile b { font-size: 15px; }
+  .mode-tile .mt-sub { font-size: 12px; padding-right: 0; }
+}
